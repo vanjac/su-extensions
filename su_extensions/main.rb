@@ -1,0 +1,223 @@
+require 'sketchup.rb'
+include Geom
+
+module SUExtensions
+
+  class FlyTool
+
+    @@speed = 1
+    
+    def activate
+      @p_mouse_x = nil
+      @p_mouse_y = nil
+      @look_speed = 0.004
+      @fly = Vector3d.new 0,0,0
+      update_status
+    end
+
+    def onMouseMove(flags, x, y, view)
+      if @p_mouse_x == nil
+        @p_mouse_x = x
+      end
+      if @p_mouse_y == nil
+        @p_mouse_y = y
+      end
+      x_move = x - @p_mouse_x
+      y_move = y - @p_mouse_y
+      @p_mouse_x = x
+      @p_mouse_y = y
+      if flags != 1
+        return
+      end
+
+      cam = Sketchup.active_model.active_view.camera
+      target = cam.target
+      up = cam.up
+
+      side = (cam.target - cam.eye).cross cam.up
+      target_trans = Transformation.rotation(
+        cam.eye, side, y_move * @look_speed)
+      up = up.transform target_trans
+      if up.z < 0 # looking too far up or too far down
+        up = cam.up
+      else
+        target = target.transform target_trans
+      end
+
+      target_trans = Transformation.rotation(
+        cam.eye, Vector3d.new(0,0,1), x_move * @look_speed)
+      target = target.transform target_trans
+      up = up.transform target_trans
+
+      cam.set cam.eye, target, up
+    end
+
+    private
+
+    def update_status
+      Sketchup.status_text = "Fly. Click and drag to look, arrow keys and . " \
+                             "and / to move. +/- to adjust speed: #{@@speed}"
+    end
+
+    public
+
+    def onKeyDown(key, repeat, flags, view)
+      if repeat == 2
+        return # ignore key repeat
+      end
+      # Windows key codes from:
+      # https://msdn.microsoft.com/en-us/library/windows/desktop/dd375731(v=vs.85).aspx
+      # TODO: add codes for Mac (also for onKeyUp)
+      if key == VK_UP
+        @fly.x += 1
+      elsif key == VK_DOWN
+        @fly.x -= 1
+      elsif key == VK_RIGHT
+        @fly.y += 1
+      elsif key == VK_LEFT
+        @fly.y -= 1
+      elsif key == 0xBF # '/'
+        @fly.z += 1
+      elsif key == 0xBE # '.'
+        @fly.z -= 1
+      elsif key == 0xBB # '+'
+        @@speed *= 1.5
+        update_status
+      elsif key == 0xBD # '-'
+        @@speed /= 1.5
+        update_status
+      end
+    end
+
+    def onKeyUp(key, repeat, flags, view)
+      if repeat == 2
+        return # ignore key repeat
+      end
+      if key == VK_UP
+        @fly.x -= 1
+      elsif key == VK_DOWN
+        @fly.x += 1
+      elsif key == VK_RIGHT
+        @fly.y -= 1
+      elsif key == VK_LEFT
+        @fly.y += 1
+      elsif key == 0xBF # '/'
+        @fly.z -= 1
+      elsif key == 0xBE # '.'
+        @fly.z += 1
+      end
+    end
+
+    def draw(view)
+      cam = Sketchup.active_model.active_view.camera
+      positive_x = (cam.target - cam.eye).normalize
+      positive_z = cam.up.normalize
+      positive_y = positive_x.cross positive_z
+      positive_x.length = @fly.x * @@speed
+      positive_y.length = @fly.y * @@speed
+      positive_z.length = @fly.z * @@speed
+      fly_move = positive_x + positive_y + positive_z
+
+      eye = cam.eye + fly_move
+      target = cam.target + fly_move
+
+      cam.set eye, target, cam.up
+    end
+
+  end # class FlyTool
+
+
+  class BackFaceObserver < Sketchup::ViewObserver
+  
+    @@hidden_back_faces = [ ]
+    
+    def self.hide_face(face)
+      if ! (@@hidden_back_faces.include? face)
+        @@hidden_back_faces.push face
+      end
+    end
+    
+    def self.unhide_face(face)
+      @@hidden_back_faces.delete(face)
+    end
+    
+    def self.update_hidden_faces
+      cam = Sketchup.active_model.active_view.camera
+      deleted = [ ]
+      @@hidden_back_faces.each{ |face|
+        if face.deleted?
+          puts "Found deleted hidden face"
+          deleted.push face
+        else
+          normal = face.normal
+          cam_normal = face.bounds.center - cam.eye
+          face.hidden = normal.angle_between(cam_normal) < Math::PI/2
+        end
+      }
+      deleted.each{ |face|
+        @@hidden_back_faces.delete face
+      }
+    end
+  
+    def onViewChanged(view)
+      BackFaceObserver.update_hidden_faces
+    end
+  end
+
+
+  def self.activate_fly_tool
+    Sketchup.active_model.select_tool(FlyTool.new)
+  end
+
+  def self.reload_file
+    path = Sketchup.active_model.path
+    Sketchup.active_model.close true # ignore changes
+    Sketchup.open_file path
+  end
+  
+  def self.hide_back_faces
+    selection = Sketchup.active_model.selection
+    selection.each { |entity|
+      if entity.is_a? Sketchup::Face
+        BackFaceObserver.hide_face(entity)
+      end
+    }
+    BackFaceObserver.update_hidden_faces
+  end
+  
+  def self.unhide_back_faces
+    selection = Sketchup.active_model.selection
+    selection.each { |entity|
+      if entity.is_a? Sketchup::Face
+        BackFaceObserver.unhide_face(entity)
+      end
+    }
+    BackFaceObserver.update_hidden_faces
+  end
+  
+  def self.reset_observer
+    Sketchup.active_model.active_view.add_observer(BackFaceObserver.new)
+  end
+
+  unless file_loaded?(__FILE__)
+    menu = UI.menu('Plugins')
+    menu.add_item('Fly') {
+      self.activate_fly_tool
+    }
+    menu.add_item('Reload Model Without Saving') {
+      self.reload_file
+    }
+    menu.add_item('Reset Back Faces Observer') {
+      self.reset_observer
+    }
+    menu.add_item('Hide Back Faces') {
+      self.hide_back_faces
+    }
+    menu.add_item('Unhide Back Faces') {
+      self.unhide_back_faces
+    }
+    self.reset_observer
+    file_loaded(__FILE__)
+  end
+
+end # module SUExtensions
