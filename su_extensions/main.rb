@@ -55,8 +55,8 @@ module SUExtensions
     private
 
     def update_status
-      Sketchup.status_text = "Fly. Click and drag to look, arrow keys and . " \
-                             "and / to move. +/- to adjust speed: #{@@speed}"
+      Sketchup.status_text = "Fly. Click and drag to look, arrows/Home/End " \
+                             "to move. +/- to adjust speed: #{@@speed}"
     end
 
     public
@@ -76,9 +76,9 @@ module SUExtensions
         @fly.y += 1
       elsif key == VK_LEFT
         @fly.y -= 1
-      elsif key == 0xBF # '/'
+      elsif key == 0x24 # Home
         @fly.z += 1
-      elsif key == 0xBE # '.'
+      elsif key == 0x23 # End
         @fly.z -= 1
       elsif key == 0xBB # '+'
         @@speed *= 1.5
@@ -101,9 +101,9 @@ module SUExtensions
         @fly.y -= 1
       elsif key == VK_LEFT
         @fly.y += 1
-      elsif key == 0xBF # '/'
+      elsif key == 0x24 # Home
         @fly.z -= 1
-      elsif key == 0xBE # '.'
+      elsif key == 0x23 # End
         @fly.z += 1
       end
     end
