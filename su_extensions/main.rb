@@ -129,30 +129,50 @@ module SUExtensions
 
   class BackFaceObserver < Sketchup::ViewObserver
 
-    @@observer_instance
+    @@hidden = []
+
+    def self.front_face_visible(entity, cam_eye)
+      normal = entity.normal
+      cam_normal = entity.bounds.center - cam_eye
+      return normal.angle_between(cam_normal) >= Math::PI/2
+    end
 
     def self.update_hidden_faces
       model = Sketchup.active_model
-      cam = model.active_view.camera
+      cam_eye = model.active_view.camera.eye
       model.start_operation('Backface Culling', true, false, true)
+
+      # in case user did "unhide all"
+      @@hidden.delete_if{ |face| face.visible? }
+
+      hide = []
       model.entities.each{ |entity|
-        if entity.is_a? Sketchup::Face
-          normal = entity.normal
-          cam_normal = entity.bounds.center - cam.eye
-          entity.hidden = normal.angle_between(cam_normal) < Math::PI/2
+        if entity.is_a?(Sketchup::Face) && entity.visible?
+          if !self.front_face_visible(entity, cam_eye)
+            entity.hidden = true
+            hide.push entity
+          end
         end
       }
+
+      @@hidden.delete_if{ |face|
+        if self.front_face_visible(face, cam_eye)
+          face.hidden = false
+          next true
+        end
+      }
+      @@hidden += hide
+
       model.commit_operation
     end
 
     def self.unhide_all
       model = Sketchup.active_model
       model.start_operation('Show Back Faces', true, false, true)
-      model.entities.each{ |entity|
-        if entity.is_a? Sketchup::Face
-          entity.hidden = false
-        end
+      @@hidden.each{ |entity|
+        entity.hidden = false
       }
+      @@hidden = []
       model.commit_operation
     end
   
