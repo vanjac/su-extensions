@@ -36,7 +36,7 @@ module SUExtensions
 
       side = (cam.target - cam.eye).cross cam.up
       target_trans = Transformation.rotation(
-        cam.eye, side, y_move * @look_speed)
+        cam.eye, side, -y_move * @look_speed)
       up = up.transform target_trans
       if up.z < 0 # looking too far up or too far down
         up = cam.up
@@ -45,7 +45,7 @@ module SUExtensions
       end
 
       target_trans = Transformation.rotation(
-        cam.eye, Vector3d.new(0,0,1), x_move * @look_speed)
+        cam.eye, Vector3d.new(0,0,1), -x_move * @look_speed)
       target = target.transform target_trans
       up = up.transform target_trans
 
