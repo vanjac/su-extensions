@@ -144,6 +144,17 @@ module SUExtensions
       }
       model.commit_operation
     end
+
+    def self.unhide_all
+      model = Sketchup.active_model
+      model.start_operation('Show Back Faces', true, false, true)
+      model.entities.each{ |entity|
+        if entity.is_a? Sketchup::Face
+          entity.hidden = false
+        end
+      }
+      model.commit_operation
+    end
   
     def onViewChanged(view)
       BackFaceObserver.update_hidden_faces
@@ -159,17 +170,14 @@ module SUExtensions
     if $observer_instance.nil?
       $observer_instance = BackFaceObserver.new
       Sketchup.active_model.active_view.add_observer($observer_instance)
+      BackFaceObserver.update_hidden_faces
     end
   end
 
   def self.show_back_faces
     if !$observer_instance.nil?
       Sketchup.active_model.active_view.remove_observer($observer_instance)
-      Sketchup.active_model.entities.each{ |entity|
-        if entity.is_a? Sketchup::Face
-          entity.hidden = false
-        end
-      }
+      BackFaceObserver.unhide_all
       $observer_instance = nil
     end
   end
