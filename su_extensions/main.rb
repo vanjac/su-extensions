@@ -128,35 +128,21 @@ module SUExtensions
 
 
   class BackFaceObserver < Sketchup::ViewObserver
-  
-    @@hidden_back_faces = [ ]
-    
-    def self.hide_face(face)
-      if ! (@@hidden_back_faces.include? face)
-        @@hidden_back_faces.push face
-      end
-    end
-    
-    def self.unhide_face(face)
-      @@hidden_back_faces.delete(face)
-    end
-    
+
+    @@observer_instance
+
     def self.update_hidden_faces
-      cam = Sketchup.active_model.active_view.camera
-      deleted = [ ]
-      @@hidden_back_faces.each{ |face|
-        if face.deleted?
-          puts "Found deleted hidden face"
-          deleted.push face
-        else
-          normal = face.normal
-          cam_normal = face.bounds.center - cam.eye
-          face.hidden = normal.angle_between(cam_normal) < Math::PI/2
+      model = Sketchup.active_model
+      cam = model.active_view.camera
+      model.start_operation('Backface Culling', true, false, true)
+      model.entities.each{ |entity|
+        if entity.is_a? Sketchup::Face
+          normal = entity.normal
+          cam_normal = entity.bounds.center - cam.eye
+          entity.hidden = normal.angle_between(cam_normal) < Math::PI/2
         end
       }
-      deleted.each{ |face|
-        @@hidden_back_faces.delete face
-      }
+      model.commit_operation
     end
   
     def onViewChanged(view)
@@ -174,29 +160,17 @@ module SUExtensions
     Sketchup.active_model.close true # ignore changes
     Sketchup.open_file path
   end
-  
+
   def self.hide_back_faces
-    selection = Sketchup.active_model.selection
-    selection.each { |entity|
-      if entity.is_a? Sketchup::Face
-        BackFaceObserver.hide_face(entity)
-      end
-    }
-    BackFaceObserver.update_hidden_faces
+    self.show_back_faces
+    $observer_instance = BackFaceObserver.new
+    Sketchup.active_model.active_view.add_observer($observer_instance)
   end
-  
-  def self.unhide_back_faces
-    selection = Sketchup.active_model.selection
-    selection.each { |entity|
-      if entity.is_a? Sketchup::Face
-        BackFaceObserver.unhide_face(entity)
-      end
-    }
-    BackFaceObserver.update_hidden_faces
-  end
-  
-  def self.reset_observer
-    Sketchup.active_model.active_view.add_observer(BackFaceObserver.new)
+
+  def self.show_back_faces
+    if !$observer_instance.nil?
+      Sketchup.active_model.active_view.remove_observer($observer_instance)
+    end
   end
 
   unless file_loaded?(__FILE__)
@@ -207,16 +181,12 @@ module SUExtensions
     menu.add_item('Reload Model Without Saving') {
       self.reload_file
     }
-    menu.add_item('Reset Back Faces Observer') {
-      self.reset_observer
-    }
     menu.add_item('Hide Back Faces') {
       self.hide_back_faces
     }
-    menu.add_item('Unhide Back Faces') {
-      self.unhide_back_faces
+    menu.add_item('Show Back Faces') {
+      self.show_back_faces
     }
-    self.reset_observer
     file_loaded(__FILE__)
   end
 
