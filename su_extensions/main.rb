@@ -80,10 +80,10 @@ module SUExtensions
         @fly.z += 1
       elsif key == 0x23 # End
         @fly.z -= 1
-      elsif key == 0xBB # '+'
+      elsif key == 0x6B # numpad +
         @@speed *= 1.5
         update_status
-      elsif key == 0xBD # '-'
+      elsif key == 0x6D # numpad -
         @@speed /= 1.5
         update_status
       end
