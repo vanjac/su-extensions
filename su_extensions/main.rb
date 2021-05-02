@@ -182,6 +182,7 @@ module SUExtensions
         entity.hidden = false
       }
       @@hidden = []
+      @@unhide_flag = false
       model.commit_operation
     end
 
