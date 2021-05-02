@@ -177,7 +177,7 @@ module SUExtensions
 
     def self.unhide_all
       model = Sketchup.active_model
-      model.start_operation('Show Back Faces', true, false, true)
+      model.start_operation('Unhide Backfaces', true, false, true)
       @@hidden.each{ |entity|
         entity.hidden = false
       }
@@ -231,11 +231,19 @@ module SUExtensions
     menu.add_item('Fly') {
       self.activate_fly_tool
     }
-    menu.add_item('Hide Back Faces') {
-      self.hide_back_faces
+    hide_item = menu.add_item('Hide Backfaces') {
+      if $view_observer.nil?
+        self.hide_back_faces
+      else
+        self.show_back_faces
+      end
     }
-    menu.add_item('Show Back Faces') {
-      self.show_back_faces
+    menu.set_validation_proc(hide_item) {
+      if $view_observer.nil?
+        MF_UNCHECKED
+      else
+        MF_CHECKED
+      end
     }
     file_loaded(__FILE__)
   end
