@@ -127,9 +127,10 @@ module SUExtensions
   end # class FlyTool
 
 
-  class BackFaceObserver < Sketchup::ViewObserver
+  class BackfaceViewObserver < Sketchup::ViewObserver
 
     @@hidden = []
+    @@unhide_flag = false
 
     def self.front_face_visible(entity, cam_eye)
       normal = entity.normal
@@ -142,11 +143,19 @@ module SUExtensions
       cam_eye = model.active_view.camera.eye
       model.start_operation('Backface Culling', true, false, true)
 
-      # in case user did "unhide all"
-      @@hidden.delete_if{ |face| face.visible? }
+      if @@unhide_flag
+        @@hidden.each{ |entity|
+          entity.hidden = false
+        }
+        @@hidden = []
+        @@unhide_flag = false
+      else
+        # in case user did "unhide all"
+        @@hidden.delete_if{ |face| face.visible? }
+      end
 
       hide = []
-      model.entities.each{ |entity|
+      model.active_entities.each{ |entity|
         if entity.is_a?(Sketchup::Face) && entity.visible?
           if !self.front_face_visible(entity, cam_eye)
             entity.hidden = true
@@ -175,9 +184,19 @@ module SUExtensions
       @@hidden = []
       model.commit_operation
     end
+
+    def self.unhide_next
+      @@unhide_flag = true
+    end
   
     def onViewChanged(view)
-      BackFaceObserver.update_hidden_faces
+      BackfaceViewObserver.update_hidden_faces
+    end
+  end
+
+  class BackfaceModelObserver < Sketchup::ModelObserver
+    def onActivePathChanged(model)
+      BackfaceViewObserver.unhide_next
     end
   end
 
@@ -187,18 +206,22 @@ module SUExtensions
   end
 
   def self.hide_back_faces
-    if $observer_instance.nil?
-      $observer_instance = BackFaceObserver.new
-      Sketchup.active_model.active_view.add_observer($observer_instance)
-      BackFaceObserver.update_hidden_faces
+    if $view_observer.nil?
+      $view_observer = BackfaceViewObserver.new
+      $model_observer = BackfaceModelObserver.new
+      Sketchup.active_model.active_view.add_observer($view_observer)
+      Sketchup.active_model.add_observer($model_observer)
+      BackfaceViewObserver.update_hidden_faces
     end
   end
 
   def self.show_back_faces
-    if !$observer_instance.nil?
-      Sketchup.active_model.active_view.remove_observer($observer_instance)
-      BackFaceObserver.unhide_all
-      $observer_instance = nil
+    if !$view_observer.nil?
+      Sketchup.active_model.active_view.remove_observer($view_observer)
+      Sketchup.active_model.remove_observer($model_observer)
+      BackfaceViewObserver.unhide_all
+      $view_observer = nil
+      $model_observer = nil
     end
   end
 
