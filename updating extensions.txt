@@ -1,6 +1,0 @@
-None of these steps can be skipped.
-
-- Save all ruby scripts! Don't close Sketchup yet.
-- Run make_rbz
-- In the Sketchup Extension Manager, install the .rbz file (no need to uninstall/disable old version)
-- Restart Sketchup
