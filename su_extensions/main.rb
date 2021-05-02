@@ -162,14 +162,21 @@ module SUExtensions
   end
 
   def self.hide_back_faces
-    self.show_back_faces
-    $observer_instance = BackFaceObserver.new
-    Sketchup.active_model.active_view.add_observer($observer_instance)
+    if $observer_instance.nil?
+      $observer_instance = BackFaceObserver.new
+      Sketchup.active_model.active_view.add_observer($observer_instance)
+    end
   end
 
   def self.show_back_faces
     if !$observer_instance.nil?
       Sketchup.active_model.active_view.remove_observer($observer_instance)
+      Sketchup.active_model.entities.each{ |entity|
+        if entity.is_a? Sketchup::Face
+          entity.hidden = false
+        end
+      }
+      $observer_instance = nil
     end
   end
 
