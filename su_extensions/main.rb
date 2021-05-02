@@ -155,12 +155,6 @@ module SUExtensions
     Sketchup.active_model.select_tool(FlyTool.new)
   end
 
-  def self.reload_file
-    path = Sketchup.active_model.path
-    Sketchup.active_model.close true # ignore changes
-    Sketchup.open_file path
-  end
-
   def self.hide_back_faces
     if $observer_instance.nil?
       $observer_instance = BackFaceObserver.new
@@ -184,9 +178,6 @@ module SUExtensions
     menu = UI.menu('Plugins')
     menu.add_item('Fly') {
       self.activate_fly_tool
-    }
-    menu.add_item('Reload Model Without Saving') {
-      self.reload_file
     }
     menu.add_item('Hide Back Faces') {
       self.hide_back_faces
