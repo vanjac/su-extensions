@@ -143,15 +143,14 @@ module SUExtensions
       cam_eye = model.active_view.camera.eye
       model.start_operation('Backface Culling', true, false, true)
 
+      # in case user did "unhide all"
+      @@hidden.delete_if{ |face| face.deleted? || face.visible? }
       if @@unhide_flag
-        @@hidden.each{ |entity|
-          entity.hidden = false
+        @@hidden.each{ |face|
+          face.hidden = false
         }
         @@hidden = []
         @@unhide_flag = false
-      else
-        # in case user did "unhide all"
-        @@hidden.delete_if{ |face| face.visible? }
       end
 
       hide = []
@@ -178,8 +177,10 @@ module SUExtensions
     def self.unhide_all
       model = Sketchup.active_model
       model.start_operation('Unhide Backfaces', true, false, true)
-      @@hidden.each{ |entity|
-        entity.hidden = false
+      @@hidden.each{ |face|
+        if !face.deleted?
+          face.hidden = false
+        end
       }
       @@hidden = []
       @@unhide_flag = false
