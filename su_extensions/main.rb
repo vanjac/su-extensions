@@ -130,7 +130,6 @@ module SUExtensions
   class BackfaceViewObserver < Sketchup::ViewObserver
 
     @@hidden = []
-    @@unhide_flag = false
 
     def self.front_face_visible(entity, cam_eye)
       normal = entity.normal
@@ -145,13 +144,6 @@ module SUExtensions
 
       # in case user did "unhide all"
       @@hidden.delete_if{ |face| face.deleted? || face.visible? }
-      if @@unhide_flag
-        @@hidden.each{ |face|
-          face.hidden = false
-        }
-        @@hidden = []
-        @@unhide_flag = false
-      end
 
       hide = []
       model.active_entities.each{ |entity|
@@ -163,8 +155,11 @@ module SUExtensions
         end
       }
 
+      current_parent = (model.active_path.nil?) ? model :
+                       model.active_path[-1].definition
       @@hidden.delete_if{ |face|
-        if self.front_face_visible(face, cam_eye)
+        if self.front_face_visible(face, cam_eye) ||
+              face.parent != current_parent
           face.hidden = false
           next true
         end
@@ -183,23 +178,16 @@ module SUExtensions
         end
       }
       @@hidden = []
-      @@unhide_flag = false
       model.commit_operation
     end
 
-    def self.unhide_next
-      @@unhide_flag = true
-    end
-  
     def onViewChanged(view)
       BackfaceViewObserver.update_hidden_faces
     end
   end
 
   class BackfaceModelObserver < Sketchup::ModelObserver
-    def onActivePathChanged(model)
-      BackfaceViewObserver.unhide_next
-    end
+    # TODO empty!
   end
 
 
