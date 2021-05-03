@@ -187,7 +187,13 @@ module SUExtensions
   end
 
   class BackfaceModelObserver < Sketchup::ModelObserver
-    # TODO empty!
+    def onPreSaveModel(model)
+      BackfaceViewObserver.unhide_all
+    end
+
+    def onPostSaveModel(model)
+      BackfaceViewObserver.update_hidden_faces
+    end
   end
 
 
