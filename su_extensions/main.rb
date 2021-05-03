@@ -5,14 +5,16 @@ module SUExtensions
 
   class FlyTool
 
-    @@speed = 1
+    @@speed = 5
 
     def activate
       $fly_tool_active = true
       @p_mouse_x = nil
       @p_mouse_y = nil
       @look_speed = 0.004
-      @fly = Vector3d.new 0,0,0
+      # split in two to prevent stuck keys
+      @fly_pos = Vector3d.new 0,0,0
+      @fly_neg = Vector3d.new 0,0,0
       update_status
     end
 
@@ -83,17 +85,17 @@ module SUExtensions
       # https://msdn.microsoft.com/en-us/library/windows/desktop/dd375731(v=vs.85).aspx
       # TODO: add codes for Mac (also for onKeyUp)
       if key == VK_UP
-        @fly.x += 1
+        @fly_pos.x = 1
       elsif key == VK_DOWN
-        @fly.x -= 1
+        @fly_neg.x = -1
       elsif key == VK_RIGHT
-        @fly.y += 1
+        @fly_pos.y = 1
       elsif key == VK_LEFT
-        @fly.y -= 1
+        @fly_neg.y = -1
       elsif key == 0x24 # Home
-        @fly.z += 1
+        @fly_pos.z = 1
       elsif key == 0x23 # End
-        @fly.z -= 1
+        @fly_neg.z = -1
       elsif key == 0x6B # numpad +
         @@speed *= 1.5
         update_status
@@ -108,17 +110,17 @@ module SUExtensions
         return # ignore key repeat
       end
       if key == VK_UP
-        @fly.x -= 1
+        @fly_pos.x = 0
       elsif key == VK_DOWN
-        @fly.x += 1
+        @fly_neg.x = 0
       elsif key == VK_RIGHT
-        @fly.y -= 1
+        @fly_pos.y = 0
       elsif key == VK_LEFT
-        @fly.y += 1
+        @fly_neg.y = 0
       elsif key == 0x24 # Home
-        @fly.z -= 1
+        @fly_pos.z = 0
       elsif key == 0x23 # End
-        @fly.z += 1
+        @fly_neg.z = 0
       end
     end
 
@@ -127,9 +129,10 @@ module SUExtensions
       positive_x = (cam.target - cam.eye).normalize
       positive_z = cam.up.normalize
       positive_y = positive_x.cross positive_z
-      positive_x.length = @fly.x * @@speed
-      positive_y.length = @fly.y * @@speed
-      positive_z.length = @fly.z * @@speed
+      fly = @fly_pos + @fly_neg
+      positive_x.length = fly.x * @@speed
+      positive_y.length = fly.y * @@speed
+      positive_z.length = fly.z * @@speed
       fly_move = positive_x + positive_y + positive_z
 
       eye = cam.eye + fly_move
