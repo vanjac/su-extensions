@@ -6,13 +6,27 @@ module SUExtensions
   class FlyTool
 
     @@speed = 1
-    
+
     def activate
+      $fly_tool_active = true
       @p_mouse_x = nil
       @p_mouse_y = nil
       @look_speed = 0.004
       @fly = Vector3d.new 0,0,0
       update_status
+    end
+
+    def deactivate(view)
+      $fly_tool_active = false
+    end
+
+    def resume(view)
+      $fly_tool_active = true
+      update_status
+    end
+
+    def suspend(view)
+      $fly_tool_active = false
     end
 
     def onMouseMove(flags, x, y, view)
@@ -223,8 +237,15 @@ module SUExtensions
 
   unless file_loaded?(__FILE__)
     menu = UI.menu('Plugins')
-    menu.add_item('Fly') {
+    fly_item = menu.add_item('Fly') {
       self.activate_fly_tool
+    }
+    menu.set_validation_proc(fly_item) {
+      if $fly_tool_active
+        MF_CHECKED
+      else
+        MF_UNCHECKED
+      end
     }
     hide_item = menu.add_item('Hide Backfaces') {
       if $view_observer.nil?
