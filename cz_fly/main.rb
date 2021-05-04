@@ -72,7 +72,13 @@ module SUExtensions
 
     def update_status
       Sketchup.status_text = "Fly. Click and drag to look, arrows/Home/End " \
-                             "to move. +/- to adjust speed: #{@@speed}"
+                             "to move. Numpad +/- to adjust speed."
+      Sketchup.vcb_label = "Fly Speed"
+      update_vcb
+    end
+
+    def update_vcb
+      Sketchup.vcb_value = @@speed.to_s
     end
 
     public
@@ -98,10 +104,10 @@ module SUExtensions
         @fly_neg.z = -1
       elsif key == 0x6B # numpad +
         @@speed *= 1.5
-        update_status
+        update_vcb
       elsif key == 0x6D # numpad -
         @@speed /= 1.5
-        update_status
+        update_vcb
       end
     end
 
