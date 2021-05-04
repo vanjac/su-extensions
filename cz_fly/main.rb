@@ -155,7 +155,8 @@ module SUExtensions
   end
 
   unless file_loaded?(__FILE__)
-    menu = UI.menu('Plugins')
+    menu = UI.menu('Camera')
+    menu.add_separator
     fly_item = menu.add_item('Fly') {
       self.activate_fly_tool
     }

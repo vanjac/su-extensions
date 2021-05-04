@@ -93,7 +93,8 @@ module SUExtensions
   end
 
   unless file_loaded?(__FILE__)
-    menu = UI.menu('Plugins')
+    menu = UI.menu('View')
+    menu.add_separator
     hide_item = menu.add_item('Hide Backfaces') {
       if $view_observer.nil?
         self.hide_back_faces
