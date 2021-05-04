@@ -1,7 +1,7 @@
 require 'sketchup.rb'
 include Geom
 
-module SUExtensions
+module Chroma
 
   class FlyTool
 
@@ -170,4 +170,4 @@ module SUExtensions
     file_loaded(__FILE__)
   end
 
-end # module SUExtensions
+end

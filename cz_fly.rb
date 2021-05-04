@@ -1,7 +1,7 @@
 require 'sketchup.rb'
 require 'extensions.rb'
 
-module SUExtensions
+module Chroma
 
   unless file_loaded?(__FILE__)
     ex = SketchupExtension.new('Fly Tool', 'cz_fly/main')

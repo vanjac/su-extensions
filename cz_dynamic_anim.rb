@@ -1,7 +1,7 @@
 require 'sketchup.rb'
 require 'extensions.rb'
 
-module SUExtensions
+module Chroma
 
   unless file_loaded?(__FILE__)
     ex = SketchupExtension.new('Dynamic Animations', 'cz_dynamic_anim/main')

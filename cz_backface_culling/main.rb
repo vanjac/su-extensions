@@ -1,6 +1,6 @@
 require 'sketchup.rb'
 
-module SUExtensions
+module Chroma
 
   class BackfaceViewObserver < Sketchup::ViewObserver
 
@@ -112,4 +112,4 @@ module SUExtensions
     file_loaded(__FILE__)
   end
 
-end # module SUExtensions
+end
