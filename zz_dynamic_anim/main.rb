@@ -3,6 +3,12 @@ require 'sketchup.rb'
 # https://sketchucation.com/forums/viewtopic.php?f=180&t=37083
 if defined?($dc_observers)
 
+class DynamicComponentsV1
+  def make_unique_if_needed(instance)
+    # lol nope
+  end
+end
+
 class DCFunctionsV1
 
   protected
