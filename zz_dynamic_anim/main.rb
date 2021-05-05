@@ -1,5 +1,8 @@
 require 'sketchup.rb'
 
+# https://sketchucation.com/forums/viewtopic.php?f=180&t=37083
+if defined?($dc_observers)
+
 class DCFunctionsV1
 
   protected
@@ -38,4 +41,8 @@ class DCFunctionsV1
     return prev_val
   end
 
+end
+
+else  # not defined
+  UI.messagebox("Dynamic Components extension not loaded!")
 end
