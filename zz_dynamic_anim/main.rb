@@ -4,8 +4,18 @@ require 'sketchup.rb'
 if defined?($dc_observers)
 
 class DynamicComponentsV1
+  # change DC behavior
   def make_unique_if_needed(instance)
     # lol nope
+  end
+end
+
+# fix a longstanding bug in DC
+unless Sketchup::Model.method_defined? :deleted?
+  class Sketchup::Model
+    def deleted?
+      !valid?()
+    end
   end
 end
 
