@@ -3,22 +3,23 @@ require 'sketchup.rb'
 module Chroma
 
   class BackfaceViewObserver < Sketchup::ViewObserver
+    def initialize
+      @hidden = []
+    end
 
-    @@hidden = []
-
-    def self.front_face_visible(face, cam_eye)
+    def front_face_visible(face, cam_eye)
       normal = face.normal
       cam_normal = face.vertices[0].position - cam_eye
       return normal.angle_between(cam_normal) >= Math::PI/2
     end
 
-    def self.update_hidden_faces
+    def update_hidden_faces
       model = Sketchup.active_model
       cam_eye = model.active_view.camera.eye
       model.start_operation('Backface Culling', true, false, true)
 
       # in case user did "unhide all"
-      @@hidden.delete_if{ |face| face.deleted? || face.visible? }
+      @hidden.delete_if{ |face| face.deleted? || face.visible? }
 
       hide = []
       model.active_entities.each{ |entity|
@@ -32,42 +33,46 @@ module Chroma
 
       current_parent = (model.active_path.nil?) ? model :
                        model.active_path[-1].definition
-      @@hidden.delete_if{ |face|
+      @hidden.delete_if{ |face|
         if self.front_face_visible(face, cam_eye) ||
               face.parent != current_parent
           face.hidden = false
           next true
         end
       }
-      @@hidden += hide
+      @hidden += hide
 
       model.commit_operation
     end
 
-    def self.unhide_all
+    def unhide_all
       model = Sketchup.active_model
       model.start_operation('Unhide Backfaces', true, false, true)
-      @@hidden.each{ |face|
+      @hidden.each{ |face|
         if !face.deleted?
           face.hidden = false
         end
       }
-      @@hidden = []
+      @hidden = []
       model.commit_operation
     end
 
     def onViewChanged(view)
-      BackfaceViewObserver.update_hidden_faces
+      update_hidden_faces
     end
   end
 
   class BackfaceModelObserver < Sketchup::ModelObserver
+    def initialize(view_observer)
+      @view_observer = view_observer
+    end
+
     def onPreSaveModel(model)
-      BackfaceViewObserver.unhide_all
+      @view_observer.unhide_all
     end
 
     def onPostSaveModel(model)
-      BackfaceViewObserver.update_hidden_faces
+      @view_observer.update_hidden_faces
     end
   end
 
@@ -75,10 +80,10 @@ module Chroma
   def self.hide_back_faces
     if $view_observer.nil?
       $view_observer = BackfaceViewObserver.new
-      $model_observer = BackfaceModelObserver.new
+      $model_observer = BackfaceModelObserver.new($view_observer)
       Sketchup.active_model.active_view.add_observer($view_observer)
       Sketchup.active_model.add_observer($model_observer)
-      BackfaceViewObserver.update_hidden_faces
+      $view_observer.update_hidden_faces
     end
   end
 
@@ -86,7 +91,7 @@ module Chroma
     if !$view_observer.nil?
       Sketchup.active_model.active_view.remove_observer($view_observer)
       Sketchup.active_model.remove_observer($model_observer)
-      BackfaceViewObserver.unhide_all
+      $view_observer.unhide_all
       $view_observer = nil
       $model_observer = nil
     end
