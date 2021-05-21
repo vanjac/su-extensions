@@ -101,7 +101,7 @@ module Chroma
   end
 
 
-  def self.hide_back_faces
+  def self.hide_backfaces
     model = Sketchup.active_model
     if model.backface_view_observer.nil?
       model.backface_view_observer = BackfaceViewObserver.new(model)
@@ -112,7 +112,7 @@ module Chroma
     end
   end
 
-  def self.show_back_faces
+  def self.show_backfaces
     model = Sketchup.active_model
     if !model.backface_view_observer.nil?
       model.active_view.remove_observer(model.backface_view_observer)
@@ -128,9 +128,9 @@ module Chroma
     menu.add_separator
     hide_item = menu.add_item('Hide Backfaces') {
       if Sketchup.active_model.backface_view_observer.nil?
-        self.hide_back_faces
+        self.hide_backfaces
       else
-        self.show_back_faces
+        self.show_backfaces
       end
     }
     menu.set_validation_proc(hide_item) {
