@@ -21,6 +21,8 @@ module Chroma
       @model.active_view.add_observer(@view_observer)
       @model_observer = BackfaceModelObserver.new
       @model.add_observer(@model_observer)
+      @definitions_observer = BackfaceDefinitionsObserver.new
+      @model.definitions.add_observer(@definitions_observer)
 
       @view_observer.update_hidden_faces
     end
@@ -30,12 +32,14 @@ module Chroma
 
       @model.active_view.remove_observer(@view_observer)
       @model.remove_observer(@model_observer)
+      @model.definitions.remove_observer(@definitions_observer)
     end
   end
 
   class BackfaceViewObserver < Sketchup::ViewObserver
     def initialize(model)
       @model = model
+      @reset_flag = false
     end
 
     def get_culled_layer
@@ -110,6 +114,16 @@ module Chroma
       update_hidden_faces
     end
 
+    def reset_delay
+      if !@reset_flag
+        @reset_flag = true
+        UI.start_timer(0.1, false) {
+          reset
+          @reset_flag = false
+        }
+      end
+    end
+
     def onViewChanged(view)
       update_hidden_faces
     end
@@ -126,7 +140,15 @@ module Chroma
 
     def onActivePathChanged(model)
       # can't reset immediately or it gets caught in an infinite undo loop
-      UI.start_timer(0.1, false) { model.backface_manager.view_observer.reset }
+      model.backface_manager.view_observer.reset_delay
+    end
+  end
+
+  class BackfaceDefinitionsObserver < Sketchup::DefinitionsObserver
+    # a new component or group was created
+    def onComponentAdded(definitions, definition)
+      # refresh to prevent groups/components from capturing hidden faces
+      definitions.model.backface_manager.view_observer.reset_delay
     end
   end
 
