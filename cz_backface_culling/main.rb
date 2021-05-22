@@ -69,12 +69,14 @@ module Chroma
       update_entities = lambda { |entities|
         entities.each{ |entity|
           if entity.is_a?(Sketchup::Face)
-            if entity.layer == culled_layer
+            if entity.hidden?
+              # ignore
+            elsif entity.layer == culled_layer
               if self.front_face_visible(entity, cam_eye)
                 operation.call
                 entity.layer = layer0
               end
-            elsif entity.layer == layer0 && entity.visible?
+            elsif entity.layer == layer0
               if !self.front_face_visible(entity, cam_eye)
                 operation.call
                 entity.layer = culled_layer
