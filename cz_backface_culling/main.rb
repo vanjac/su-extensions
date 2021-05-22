@@ -35,8 +35,8 @@ module Chroma
 
     def front_face_visible(face, cam_eye)
       normal = face.normal
-      cam_normal = face.vertices[0].position - cam_eye
-      return normal.angle_between(cam_normal) >= Math::PI/2
+      cam_dir = cam_eye - face.vertices[0].position
+      return normal.dot(cam_dir) >= 0
     end
 
     def update_hidden_faces
