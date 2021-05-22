@@ -11,7 +11,6 @@ module Chroma
 
   class BackfaceManager
     attr_accessor :view_observer
-    attr_accessor :model_observer
 
     def initialize(model)
       @model = model
