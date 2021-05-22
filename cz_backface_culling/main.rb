@@ -25,6 +25,7 @@ module Chroma
       end
       layer = @model.layers.add("culled")
       layer.visible = false
+      layer.page_behavior = LAYER_HIDDEN_BY_DEFAULT
       return layer
     end
 
