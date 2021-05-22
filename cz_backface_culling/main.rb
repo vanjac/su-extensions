@@ -29,10 +29,6 @@ module Chroma
       return layer
     end
 
-    def get_layer0
-      return @model.layers[0]
-    end
-
     def front_face_visible(face, cam_eye)
       normal = face.normal
       cam_dir = cam_eye - face.vertices[0].position
@@ -47,8 +43,8 @@ module Chroma
 
       cam_eye = @model.active_view.camera.eye
       culled_layer = get_culled_layer
-      layer0 = get_layer0
-      
+      layer0 = @model.layers["Layer0"]  # aka "untagged"
+
       operation_started = false
       # prevents starting an empty operation and overwriting the redo stack
       operation = lambda {
