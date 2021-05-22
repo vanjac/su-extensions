@@ -73,7 +73,7 @@ module Chroma
     end
 
     def unhide_all
-      @model.start_operation('Unhide Backfaces', true, false, true)
+      @model.start_operation('Unhide Back Faces', true, false, true)
       @model.layers.remove("culled")
       @model.commit_operation
     end
@@ -142,9 +142,8 @@ module Chroma
   end
 
   unless file_loaded?(__FILE__)
-    menu = UI.menu('View')
-    menu.add_separator
-    hide_item = menu.add_item('Hide Backfaces') {
+    menu = UI.menu
+    hide_item = menu.add_item('Hide Back Faces') {
       if Sketchup.active_model.backface_view_observer.nil?
         self.hide_backfaces
       else
