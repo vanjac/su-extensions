@@ -3,12 +3,35 @@ require 'sketchup.rb'
 # extensions to built in sketchup objects
 module Sketchup
   class Model
-    attr_accessor :backface_view_observer
-    attr_accessor :backface_model_observer
+    attr_accessor :backface_manager
   end
 end
 
 module Chroma
+
+  class BackfaceManager
+    attr_accessor :view_observer
+    attr_accessor :model_observer
+
+    def initialize(model)
+      @model = model
+      @model.backface_manager = self
+
+      @view_observer = BackfaceViewObserver.new(@model)
+      @model.active_view.add_observer(@view_observer)
+      @model_observer = BackfaceModelObserver.new
+      @model.add_observer(@model_observer)
+
+      @view_observer.update_hidden_faces
+    end
+
+    def remove
+      @model.backface_manager = nil
+
+      @model.active_view.remove_observer(@view_observer)
+      @model.remove_observer(@model_observer)
+    end
+  end
 
   class BackfaceViewObserver < Sketchup::ViewObserver
     def initialize(model)
@@ -75,7 +98,9 @@ module Chroma
 
     def unhide_all
       @model.start_operation('Unhide Back Faces', true, false, true)
-      @model.layers.remove("culled")
+      if !@model.layers["culled"].nil?
+        @model.layers.remove("culled", false)
+      end
       @model.commit_operation
     end
 
@@ -92,16 +117,16 @@ module Chroma
 
   class BackfaceModelObserver < Sketchup::ModelObserver
     def onPreSaveModel(model)
-      model.backface_view_observer.unhide_all
+      model.backface_manager.view_observer.unhide_all
     end
 
     def onPostSaveModel(model)
-      model.backface_view_observer.update_hidden_faces
+      model.backface_manager.view_observer.update_hidden_faces
     end
 
     def onActivePathChanged(model)
       # can't reset immediately or it gets caught in an infinite undo loop
-      UI.start_timer(0.1, false) { model.backface_view_observer.reset }
+      UI.start_timer(0.1, false) { model.backface_manager.view_observer.reset }
     end
   end
 
@@ -115,13 +140,9 @@ module Chroma
     end
 
     def resetObservers(model)
-      # since model objects are reused on windows for new models
-      if !model.backface_view_observer.nil?
-        model.active_view.remove_observer(model.backface_view_observer)
-        model.remove_observer(model.backface_model_observer)
-        # no need to unhide all, this is a new model
-        model.backface_view_observer = nil
-        model.backface_model_observer = nil
+      # since model objects are reused on Windows for new models
+      if !model.backface_manager.nil?
+        model.backface_manager.remove
       end
     end
   end
@@ -129,37 +150,30 @@ module Chroma
 
   def self.hide_backfaces
     model = Sketchup.active_model
-    if model.backface_view_observer.nil?
-      model.backface_view_observer = BackfaceViewObserver.new(model)
-      model.backface_model_observer = BackfaceModelObserver.new
-      model.active_view.add_observer(model.backface_view_observer)
-      model.add_observer(model.backface_model_observer)
-      model.backface_view_observer.update_hidden_faces
+    if model.backface_manager.nil?
+      BackfaceManager.new(model)
     end
   end
 
   def self.show_backfaces
     model = Sketchup.active_model
-    if !model.backface_view_observer.nil?
-      model.active_view.remove_observer(model.backface_view_observer)
-      model.remove_observer(model.backface_model_observer)
-      model.backface_view_observer.unhide_all
-      model.backface_view_observer = nil
-      model.backface_model_observer = nil
+    if !model.backface_manager.nil?
+      model.backface_manager.view_observer.unhide_all
+      model.backface_manager.remove
     end
   end
 
   unless file_loaded?(__FILE__)
     menu = UI.menu
     hide_item = menu.add_item('Hide Back Faces') {
-      if Sketchup.active_model.backface_view_observer.nil?
+      if Sketchup.active_model.backface_manager.nil?
         self.hide_backfaces
       else
         self.show_backfaces
       end
     }
     menu.set_validation_proc(hide_item) {
-      if Sketchup.active_model.backface_view_observer.nil?
+      if Sketchup.active_model.backface_manager.nil?
         MF_UNCHECKED
       else
         MF_CHECKED
