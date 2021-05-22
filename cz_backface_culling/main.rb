@@ -11,11 +11,8 @@ end
 module Chroma
 
   class BackfaceViewObserver < Sketchup::ViewObserver
-    attr_accessor :unhide_flag
-
     def initialize(model)
       @model = model
-      @unhide_flag = false
     end
 
     def get_culled_layer
@@ -36,11 +33,6 @@ module Chroma
     end
 
     def update_hidden_faces
-      if @unhide_flag
-        unhide_all
-        @unhide_flag = false
-      end
-
       cam_eye = @model.active_view.camera.eye
       culled_layer = get_culled_layer
       layer0 = @model.layers["Layer0"]  # aka "untagged"
@@ -87,6 +79,12 @@ module Chroma
       @model.commit_operation
     end
 
+    # necessary when the active path changes
+    def reset
+      unhide_all
+      update_hidden_faces
+    end
+
     def onViewChanged(view)
       update_hidden_faces
     end
@@ -102,7 +100,8 @@ module Chroma
     end
 
     def onActivePathChanged(model)
-      model.backface_view_observer.unhide_flag = true
+      # can't reset immediately or it gets caught in an infinite undo loop
+      UI.start_timer(0.1, false) { model.backface_view_observer.reset }
     end
   end
 
