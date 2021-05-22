@@ -11,9 +11,25 @@ end
 module Chroma
 
   class BackfaceViewObserver < Sketchup::ViewObserver
+    attr_accessor :unhide_flag
+
     def initialize(model)
       @model = model
-      @hidden = []
+      @unhide_flag = false
+    end
+
+    def get_culled_layer
+      layer = @model.layers["culled"]
+      if !layer.nil?
+        return layer
+      end
+      layer = @model.layers.add("culled")
+      layer.visible = false
+      return layer
+    end
+
+    def get_layer0
+      return @model.layers[0]
     end
 
     def front_face_visible(face, cam_eye)
@@ -23,44 +39,37 @@ module Chroma
     end
 
     def update_hidden_faces
+      if @unhide_flag
+        unhide_all
+        @unhide_flag = false
+      end
+
       cam_eye = @model.active_view.camera.eye
       @model.start_operation('Backface Culling', true, false, true)
 
-      # in case user did "unhide all"
-      @hidden.delete_if{ |face| face.deleted? || face.visible? }
+      culled_layer = get_culled_layer
+      layer0 = get_layer0
 
-      hide = []
       @model.active_entities.each{ |entity|
-        if entity.is_a?(Sketchup::Face) && entity.visible?
-          if !self.front_face_visible(entity, cam_eye)
-            entity.hidden = true
-            hide.push entity
+        if entity.is_a?(Sketchup::Face)
+          if entity.layer == culled_layer
+            if self.front_face_visible(entity, cam_eye)
+              entity.layer = layer0
+            end
+          elsif entity.layer == layer0 && entity.visible?
+            if !self.front_face_visible(entity, cam_eye)
+              entity.layer = culled_layer
+            end
           end
         end
       }
-
-      current_parent = (@model.active_path.nil?) ? @model :
-                       @model.active_path[-1].definition
-      @hidden.delete_if{ |face|
-        if self.front_face_visible(face, cam_eye) ||
-              face.parent != current_parent
-          face.hidden = false
-          next true
-        end
-      }
-      @hidden += hide
 
       @model.commit_operation
     end
 
     def unhide_all
       @model.start_operation('Unhide Backfaces', true, false, true)
-      @hidden.each{ |face|
-        if !face.deleted?
-          face.hidden = false
-        end
-      }
-      @hidden = []
+      @model.layers.remove("culled")
       @model.commit_operation
     end
 
@@ -76,6 +85,10 @@ module Chroma
 
     def onPostSaveModel(model)
       model.backface_view_observer.update_hidden_faces
+    end
+
+    def onActivePathChanged(model)
+      model.backface_view_observer.unhide_flag = true
     end
   end
 
