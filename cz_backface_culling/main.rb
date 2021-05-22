@@ -46,31 +46,43 @@ module Chroma
       end
 
       cam_eye = @model.active_view.camera.eye
-      @model.start_operation('Backface Culling', true, false, true)
-
       culled_layer = get_culled_layer
       layer0 = get_layer0
+      
+      operation_started = false
+      # prevents starting an empty operation and overwriting the redo stack
+      operation = lambda {
+        if !operation_started
+          operation_started = true
+          @model.start_operation('Backface Culling', true, false, true)
+        end
+      }
 
       @model.active_entities.each{ |entity|
         if entity.is_a?(Sketchup::Face)
           if entity.layer == culled_layer
             if self.front_face_visible(entity, cam_eye)
+              operation.call
               entity.layer = layer0
             end
           elsif entity.layer == layer0 && entity.visible?
             if !self.front_face_visible(entity, cam_eye)
+              operation.call
               entity.layer = culled_layer
             end
           end
         elsif entity.is_a?(Sketchup::Edge) && entity.layer == culled_layer
           # fixes bug with deleting culled faces
+          operation.call
           culled_layer.visible = true
           entity.erase!
           culled_layer.visible = false
         end
       }
 
-      @model.commit_operation
+      if operation_started
+        @model.commit_operation
+      end
     end
 
     def unhide_all
