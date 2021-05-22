@@ -10,20 +10,19 @@ end
 module Chroma
 
   class BackfaceManager
-    attr_accessor :view_observer
-
     def initialize(model)
       @model = model
       @model.backface_manager = self
+      @reset_flag = false
 
-      @view_observer = BackfaceViewObserver.new(@model)
+      @view_observer = BackfaceViewObserver.new
       @model.active_view.add_observer(@view_observer)
       @model_observer = BackfaceModelObserver.new
       @model.add_observer(@model_observer)
       @definitions_observer = BackfaceDefinitionsObserver.new
       @model.definitions.add_observer(@definitions_observer)
 
-      @view_observer.update_hidden_faces
+      update_hidden_faces
     end
 
     def remove
@@ -32,13 +31,6 @@ module Chroma
       @model.active_view.remove_observer(@view_observer)
       @model.remove_observer(@model_observer)
       @model.definitions.remove_observer(@definitions_observer)
-    end
-  end
-
-  class BackfaceViewObserver < Sketchup::ViewObserver
-    def initialize(model)
-      @model = model
-      @reset_flag = false
     end
 
     def get_culled_layer
@@ -124,24 +116,27 @@ module Chroma
         }
       end
     end
+  end
 
+
+  class BackfaceViewObserver < Sketchup::ViewObserver
     def onViewChanged(view)
-      update_hidden_faces
+      view.model.backface_manager.update_hidden_faces
     end
   end
 
   class BackfaceModelObserver < Sketchup::ModelObserver
     def onPreSaveModel(model)
-      model.backface_manager.view_observer.unhide_all
+      model.backface_manager.unhide_all
     end
 
     def onPostSaveModel(model)
-      model.backface_manager.view_observer.update_hidden_faces
+      model.backface_manager.update_hidden_faces
     end
 
     def onActivePathChanged(model)
       # can't reset immediately or it gets caught in an infinite undo loop
-      model.backface_manager.view_observer.reset_delay
+      model.backface_manager.reset_delay
     end
   end
 
@@ -149,7 +144,7 @@ module Chroma
     # a new component or group was created
     def onComponentAdded(definitions, definition)
       # refresh to prevent groups/components from capturing hidden faces
-      definitions.model.backface_manager.view_observer.reset_delay
+      definitions.model.backface_manager.reset_delay
     end
   end
 
@@ -181,7 +176,7 @@ module Chroma
   def self.show_backfaces
     model = Sketchup.active_model
     if !model.backface_manager.nil?
-      model.backface_manager.view_observer.unhide_all
+      model.backface_manager.unhide_all
       model.backface_manager.remove
     end
   end
