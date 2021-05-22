@@ -66,27 +66,37 @@ module Chroma
         end
       }
 
-      @model.active_entities.each{ |entity|
-        if entity.is_a?(Sketchup::Face)
-          if entity.layer == culled_layer
-            if self.front_face_visible(entity, cam_eye)
-              operation.call
-              entity.layer = layer0
+      update_entities = lambda { |entities|
+        entities.each{ |entity|
+          if entity.is_a?(Sketchup::Face)
+            if entity.layer == culled_layer
+              if self.front_face_visible(entity, cam_eye)
+                operation.call
+                entity.layer = layer0
+              end
+            elsif entity.layer == layer0 && entity.visible?
+              if !self.front_face_visible(entity, cam_eye)
+                operation.call
+                entity.layer = culled_layer
+              end
             end
-          elsif entity.layer == layer0 && entity.visible?
-            if !self.front_face_visible(entity, cam_eye)
-              operation.call
-              entity.layer = culled_layer
-            end
+          elsif entity.is_a?(Sketchup::Edge) && entity.layer == culled_layer
+            # fixes bug with deleting culled faces
+            operation.call
+            culled_layer.visible = true
+            entity.erase!
+            culled_layer.visible = false
           end
-        elsif entity.is_a?(Sketchup::Edge) && entity.layer == culled_layer
-          # fixes bug with deleting culled faces
-          operation.call
-          culled_layer.visible = true
-          entity.erase!
-          culled_layer.visible = false
-        end
+        }
       }
+
+      update_entities.call(@model.entities)  # root
+      path = @model.active_path
+      if !path.nil?
+        path.each { |context|
+          update_entities.call(context.definition.entities)
+        }
+      end
 
       if operation_started
         @model.commit_operation
