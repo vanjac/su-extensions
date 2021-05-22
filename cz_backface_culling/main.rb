@@ -61,6 +61,11 @@ module Chroma
               entity.layer = culled_layer
             end
           end
+        elsif entity.is_a?(Sketchup::Edge) && entity.layer == culled_layer
+          # fixes bug with deleting culled faces
+          culled_layer.visible = true
+          entity.erase!
+          culled_layer.visible = false
         end
       }
 
