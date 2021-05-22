@@ -46,9 +46,11 @@ module Chroma
       if !layer.nil?
         return layer
       end
+      @model.start_operation('Hide Back Faces', true, false, true)
       layer = @model.layers.add("culled")
       layer.visible = false
       layer.page_behavior = LAYER_HIDDEN_BY_DEFAULT
+      @model.commit_operation
       return layer
     end
 
