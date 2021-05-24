@@ -18,7 +18,7 @@ You can use Sketchup's shortcut preferences to attach a shortcut to the menu ite
 
 ### Known issues
 These are a result of the limitations of Ruby extensions.
-- When back faces are hidden/shown you will lose all Redo commands.
+- If you undo a command while Hide Back Faces is enabled, it will temporarily pause to avoid clearing Redo commands. It resumes automatically when you make any other change.
 - Select All and box select will only select visible faces. (Triple-clicking will select all connected faces, even hidden.)
 - When deleting a selected face that's hidden, some edges will appear to remain. Just move the camera and they'll disappear.
 - It can be slow with large numbers of faces in a single object
