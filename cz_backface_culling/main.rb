@@ -5,11 +5,41 @@ module Chroma
   class BackfaceManager
     LAYER_NAME = "Hide Back Faces"
     @@model_managers = {}
+    attr_accessor :enabled
+
+    def self.get_manager(model)
+      return @@model_managers[model]
+    end
+
+    def self.add_manager(model)
+      manager = get_manager(model)
+      if manager == nil
+        manager = BackfaceManager.new(model)
+        @@model_managers[model] = manager
+      end
+      return manager
+    end
+
+    def self.backfaces_hidden(model)
+      manager = get_manager(model)
+      if manager.nil?
+        return false
+      else
+        return manager.enabled
+      end
+    end
 
     def initialize(model)
       @model = model
-      @@model_managers[@model] = self
+      @enabled = false
       @reset_flag = false
+    end
+
+    def enable
+      if @enabled
+        return
+      end
+      @enabled = true
 
       @view_observer = BackfaceViewObserver.new(self)
       @model.active_view.add_observer(@view_observer)
@@ -21,17 +51,20 @@ module Chroma
       update_hidden_faces
     end
 
-    def remove
-      @@model_managers.delete(@model)
+    def disable
+      if !@enabled
+        return
+      end
+      @enabled = false
 
       @model.active_view.remove_observer(@view_observer)
+      @view_observer = nil
       @model.remove_observer(@model_observer)
+      @model_observer = nil
       @model.definitions.remove_observer(@definitions_observer)
+      @definitions_observer = nil
     end
 
-    def self.get_manager(model)
-      return @@model_managers[model]
-    end
 
     def get_culled_layer
       layer = @model.layers[LAYER_NAME]
@@ -53,6 +86,9 @@ module Chroma
     end
 
     def update_hidden_faces
+      if !@enabled
+        return
+      end
       cam_eye = @model.active_view.camera.eye
       culled_layer = get_culled_layer
       layer0 = @model.layers["Layer0"]  # aka "untagged"
@@ -106,6 +142,9 @@ module Chroma
     end
 
     def unhide_all
+      if !@enabled
+        return
+      end
       @model.start_operation('Unhide Back Faces', true, false, true)
       if !@model.layers[LAYER_NAME].nil?
         @model.layers.remove(LAYER_NAME, false)
@@ -120,6 +159,9 @@ module Chroma
     end
 
     def reset_delay
+      if !@enabled
+        return
+      end
       if !@reset_flag
         @reset_flag = true
         UI.start_timer(0.1, false) {
@@ -185,41 +227,37 @@ module Chroma
       # since model objects are reused on Windows for new models
       manager = BackfaceManager.get_manager(model)
       if !manager.nil?
-        manager.remove
+        manager.disable
       end
     end
   end
 
 
   def self.hide_backfaces
-    model = Sketchup.active_model
-    if BackfaceManager.get_manager(model).nil?
-      BackfaceManager.new(model)
-    end
+    manager = BackfaceManager.add_manager(Sketchup.active_model)
+    manager.enable
   end
 
   def self.show_backfaces
-    manager = BackfaceManager.get_manager(Sketchup.active_model)
-    if !manager.nil?
-      manager.unhide_all
-      manager.remove
-    end
+    manager = BackfaceManager.add_manager(Sketchup.active_model)
+    manager.unhide_all
+    manager.disable
   end
 
   unless file_loaded?(__FILE__)
     menu = UI.menu
     hide_item = menu.add_item('Hide Back Faces') {
-      if BackfaceManager.get_manager(Sketchup.active_model).nil?
-        self.hide_backfaces
-      else
+      if BackfaceManager.backfaces_hidden(Sketchup.active_model)
         self.show_backfaces
+      else
+        self.hide_backfaces
       end
     }
     menu.set_validation_proc(hide_item) {
-      if BackfaceManager.get_manager(Sketchup.active_model).nil?
-        MF_UNCHECKED
-      else
+      if BackfaceManager.backfaces_hidden(Sketchup.active_model)
         MF_CHECKED
+      else
+        MF_UNCHECKED
       end
     }
     Sketchup.add_observer(BackfaceAppObserver.new)
