@@ -1,38 +1,36 @@
 require 'sketchup.rb'
 
-# extensions to built in sketchup objects
-module Sketchup
-  class Model
-    attr_accessor :backface_manager
-  end
-end
-
 module Chroma
 
   class BackfaceManager
     LAYER_NAME = "Hide Back Faces"
+    @@model_managers = {}
 
     def initialize(model)
       @model = model
-      @model.backface_manager = self
+      @@model_managers[@model] = self
       @reset_flag = false
 
-      @view_observer = BackfaceViewObserver.new
+      @view_observer = BackfaceViewObserver.new(self)
       @model.active_view.add_observer(@view_observer)
-      @model_observer = BackfaceModelObserver.new
+      @model_observer = BackfaceModelObserver.new(self)
       @model.add_observer(@model_observer)
-      @definitions_observer = BackfaceDefinitionsObserver.new
+      @definitions_observer = BackfaceDefinitionsObserver.new(self)
       @model.definitions.add_observer(@definitions_observer)
 
       update_hidden_faces
     end
 
     def remove
-      @model.backface_manager = nil
+      @@model_managers.delete(@model)
 
       @model.active_view.remove_observer(@view_observer)
       @model.remove_observer(@model_observer)
       @model.definitions.remove_observer(@definitions_observer)
+    end
+
+    def self.get_manager(model)
+      return @@model_managers[model]
     end
 
     def get_culled_layer
@@ -134,31 +132,43 @@ module Chroma
 
 
   class BackfaceViewObserver < Sketchup::ViewObserver
+    def initialize(manager)
+      @manager = manager
+    end
+
     def onViewChanged(view)
-      view.model.backface_manager.update_hidden_faces
+      @manager.update_hidden_faces
     end
   end
 
   class BackfaceModelObserver < Sketchup::ModelObserver
+    def initialize(manager)
+      @manager = manager
+    end
+
     def onPreSaveModel(model)
-      model.backface_manager.unhide_all
+      @manager.unhide_all
     end
 
     def onPostSaveModel(model)
-      model.backface_manager.update_hidden_faces
+      @manager.update_hidden_faces
     end
 
     def onActivePathChanged(model)
       # can't reset immediately or it gets caught in an infinite undo loop
-      model.backface_manager.reset_delay
+      @manager.reset_delay
     end
   end
 
   class BackfaceDefinitionsObserver < Sketchup::DefinitionsObserver
+    def initialize(manager)
+      @manager = manager
+    end
+
     # a new component or group was created
     def onComponentAdded(definitions, definition)
       # refresh to prevent groups/components from capturing hidden faces
-      definitions.model.backface_manager.reset_delay
+      @manager.reset_delay
     end
   end
 
@@ -173,8 +183,9 @@ module Chroma
 
     def resetObservers(model)
       # since model objects are reused on Windows for new models
-      if !model.backface_manager.nil?
-        model.backface_manager.remove
+      manager = BackfaceManager.get_manager(model)
+      if !manager.nil?
+        manager.remove
       end
     end
   end
@@ -182,30 +193,30 @@ module Chroma
 
   def self.hide_backfaces
     model = Sketchup.active_model
-    if model.backface_manager.nil?
+    if BackfaceManager.get_manager(model).nil?
       BackfaceManager.new(model)
     end
   end
 
   def self.show_backfaces
-    model = Sketchup.active_model
-    if !model.backface_manager.nil?
-      model.backface_manager.unhide_all
-      model.backface_manager.remove
+    manager = BackfaceManager.get_manager(Sketchup.active_model)
+    if !manager.nil?
+      manager.unhide_all
+      manager.remove
     end
   end
 
   unless file_loaded?(__FILE__)
     menu = UI.menu
     hide_item = menu.add_item('Hide Back Faces') {
-      if Sketchup.active_model.backface_manager.nil?
+      if BackfaceManager.get_manager(Sketchup.active_model).nil?
         self.hide_backfaces
       else
         self.show_backfaces
       end
     }
     menu.set_validation_proc(hide_item) {
-      if Sketchup.active_model.backface_manager.nil?
+      if BackfaceManager.get_manager(Sketchup.active_model).nil?
         MF_UNCHECKED
       else
         MF_CHECKED
