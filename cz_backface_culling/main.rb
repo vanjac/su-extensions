@@ -2,7 +2,8 @@ require 'sketchup.rb'
 
 module Chroma
 
-  class BackfaceManager
+  # active throughout model lifetime, once created
+  class BackfaceManager < Sketchup::LayersObserver
     LAYER_NAME = "Hide Back Faces"
     @@model_managers = {}
     attr_accessor :enabled
@@ -32,7 +33,10 @@ module Chroma
     def initialize(model)
       @model = model
       @enabled = false
+      @culled_layer = nil
       @reset_flag = false
+
+      @model.layers.add_observer(self)
     end
 
     def enable
@@ -48,7 +52,7 @@ module Chroma
       @definitions_observer = BackfaceDefinitionsObserver.new(self)
       @model.definitions.add_observer(@definitions_observer)
 
-      update_hidden_faces
+      create_culled_layer
     end
 
     def disable
@@ -63,21 +67,51 @@ module Chroma
       @model_observer = nil
       @model.definitions.remove_observer(@definitions_observer)
       @definitions_observer = nil
+
+      remove_culled_layer
     end
 
+    def create_culled_layer(transparent = false)
+      if @culled_layer.nil?
+        @culled_layer = true  # prevent immediate trigger of onLayerAdded
+        @model.start_operation('Hide Back Faces', true, false, transparent)
+        @culled_layer = @model.layers.add(LAYER_NAME)
+        @culled_layer.visible = false
+        @culled_layer.page_behavior = LAYER_HIDDEN_BY_DEFAULT
+        @model.commit_operation
 
-    def get_culled_layer
-      layer = @model.layers[LAYER_NAME]
-      if !layer.nil?
-        return layer
+        update_hidden_faces
       end
-      @model.start_operation('Hide Back Faces', true, false, true)
-      layer = @model.layers.add(LAYER_NAME)
-      layer.visible = false
-      layer.page_behavior = LAYER_HIDDEN_BY_DEFAULT
-      @model.commit_operation
-      return layer
     end
+
+    def remove_culled_layer(transparent = false)
+      if @culled_layer.deleted?
+        @culled_layer = nil  # can happen when opening new file
+      elsif !@culled_layer.nil?
+        layer = @culled_layer
+        @culled_layer = nil  # prevent immediate trigger of onLayerRemoved
+        @model.start_operation('Unhide Back Faces', true, false, transparent)
+        @model.layers.remove(layer, false)
+        @model.commit_operation
+      end
+    end
+
+    def onLayerAdded(layers, layer)
+      if @culled_layer.nil? && layer.name == LAYER_NAME
+        #puts "layer added unexpectedly! probably undo/redo"
+        @culled_layer = layer
+        enable
+      end
+    end
+
+    def onLayerRemoved(layers, layer)
+      if !@culled_layer.nil? && layers[LAYER_NAME].nil?
+        #puts "layer removed unexpectedly! probably undo/redo"
+        @culled_layer = nil
+        disable
+      end
+    end
+
 
     def front_face_visible(face, cam_eye)
       normal = face.normal
@@ -90,7 +124,6 @@ module Chroma
         return
       end
       cam_eye = @model.active_view.camera.eye
-      culled_layer = get_culled_layer
       layer0 = @model.layers["Layer0"]  # aka "untagged"
 
       operation_started = false
@@ -107,7 +140,7 @@ module Chroma
           if entity.is_a?(Sketchup::Face)
             if entity.hidden?
               # ignore
-            elsif entity.layer == culled_layer
+            elsif entity.layer == @culled_layer
               if self.front_face_visible(entity, cam_eye)
                 operation.call
                 entity.layer = layer0
@@ -115,15 +148,15 @@ module Chroma
             elsif entity.layer == layer0
               if !self.front_face_visible(entity, cam_eye)
                 operation.call
-                entity.layer = culled_layer
+                entity.layer = @culled_layer
               end
             end
-          elsif entity.is_a?(Sketchup::Edge) && entity.layer == culled_layer
+          elsif entity.is_a?(Sketchup::Edge) && entity.layer == @culled_layer
             # fixes bug with deleting culled faces
             operation.call
-            culled_layer.visible = true
+            @culled_layer.visible = true
             entity.erase!
-            culled_layer.visible = false
+            @culled_layer.visible = false
           end
         }
       }
@@ -141,21 +174,10 @@ module Chroma
       end
     end
 
-    def unhide_all
-      if !@enabled
-        return
-      end
-      @model.start_operation('Unhide Back Faces', true, false, true)
-      if !@model.layers[LAYER_NAME].nil?
-        @model.layers.remove(LAYER_NAME, false)
-      end
-      @model.commit_operation
-    end
-
     # necessary when the active path changes
     def reset
-      unhide_all
-      update_hidden_faces
+      remove_culled_layer(true)
+      create_culled_layer(true)
     end
 
     def reset_delay
@@ -173,6 +195,7 @@ module Chroma
   end
 
 
+  # active only when back faces hidden
   class BackfaceViewObserver < Sketchup::ViewObserver
     def initialize(manager)
       @manager = manager
@@ -183,17 +206,18 @@ module Chroma
     end
   end
 
+  # active only when back faces hidden
   class BackfaceModelObserver < Sketchup::ModelObserver
     def initialize(manager)
       @manager = manager
     end
 
     def onPreSaveModel(model)
-      @manager.unhide_all
+      @manager.remove_culled_layer(true)
     end
 
     def onPostSaveModel(model)
-      @manager.update_hidden_faces
+      @manager.create_culled_layer(true)
     end
 
     def onActivePathChanged(model)
@@ -202,6 +226,7 @@ module Chroma
     end
   end
 
+  # active only when back faces hidden
   class BackfaceDefinitionsObserver < Sketchup::DefinitionsObserver
     def initialize(manager)
       @manager = manager
@@ -214,6 +239,7 @@ module Chroma
     end
   end
 
+  # active always
   class BackfaceAppObserver < Sketchup::AppObserver
     def onNewModel(model)
       resetObservers(model)
@@ -240,7 +266,6 @@ module Chroma
 
   def self.show_backfaces
     manager = BackfaceManager.add_manager(Sketchup.active_model)
-    manager.unhide_all
     manager.disable
   end
 
