@@ -64,7 +64,7 @@ module Chroma
       operation = lambda {
         if !operation_started
           operation_started = true
-          @model.start_operation('Backface Culling', true, false, true)
+          @model.start_operation('Back Face Culling', true, false, true)
         end
       }
 
