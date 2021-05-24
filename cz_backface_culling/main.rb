@@ -85,12 +85,12 @@ module Chroma
       if !@paused
         @paused = true
         notification = UI::Notification.new(Chroma.backface_culling_extension,
-          "Hide Back Faces paused");
+          "Hide Back Faces interrupted");
         notification.on_accept("Resume") {
-          @manager.unpause
+          unpause
         }
-        notification.on_dismiss("Disable") {
-          @manager.disable
+        notification.on_dismiss("Stop") {
+          disable
         }
         notification.show
         # hack to bring focus back to main window
