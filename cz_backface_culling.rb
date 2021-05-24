@@ -9,6 +9,7 @@ module Chroma
     ex.version = '1.0.0'
     ex.creator = 'Jacob van\'t Hoog'
     Sketchup.register_extension(ex, true)
+    @@backface_culling_extension = ex
     file_loaded(__FILE__)
   end
 

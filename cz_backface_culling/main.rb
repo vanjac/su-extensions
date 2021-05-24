@@ -2,11 +2,15 @@ require 'sketchup.rb'
 
 module Chroma
 
+  def self.backface_culling_extension
+    return @@backface_culling_extension
+  end
+
+
   # active throughout model lifetime, once created
   class BackfaceManager < Sketchup::LayersObserver
     LAYER_NAME = "Hide Back Faces"
     @@model_managers = {}
-    attr_accessor :enabled
 
     def self.get_manager(model)
       return @@model_managers[model]
@@ -26,13 +30,14 @@ module Chroma
       if manager.nil?
         return false
       else
-        return manager.enabled
+        return manager.active?
       end
     end
 
     def initialize(model)
       @model = model
       @enabled = false
+      @paused = false
       @culled_layer = nil
       @reset_flag = false
 
@@ -44,6 +49,7 @@ module Chroma
         return
       end
       @enabled = true
+      @paused = false
 
       @view_observer = BackfaceViewObserver.new(self)
       @model.active_view.add_observer(@view_observer)
@@ -71,6 +77,36 @@ module Chroma
       remove_culled_layer
     end
 
+    def active?
+      return @enabled && !@paused
+    end
+
+    def pause
+      if !@paused
+        @paused = true
+        notification = UI::Notification.new(Chroma.backface_culling_extension,
+          "Hide Back Faces paused");
+        notification.on_accept("Resume") {
+          @manager.unpause
+        }
+        notification.on_dismiss("Disable") {
+          @manager.disable
+        }
+        notification.show
+        # hack to bring focus back to main window
+        dialog = UI::HtmlDialog.new(width: 0, height: 0)
+        dialog.show
+        dialog.close
+      end
+    end
+
+    def unpause
+      if @paused
+        @paused = false
+        update_hidden_faces
+      end
+    end
+
     def create_culled_layer(transparent = false)
       if @culled_layer.nil?
         @culled_layer = true  # prevent immediate trigger of onLayerAdded
@@ -85,9 +121,11 @@ module Chroma
     end
 
     def remove_culled_layer(transparent = false)
-      if @culled_layer.deleted?
-        @culled_layer = nil  # can happen when opening new file
-      elsif !@culled_layer.nil?
+      if !@culled_layer.nil?
+        if @culled_layer.deleted?
+          @culled_layer = nil
+          return
+        end
         layer = @culled_layer
         @culled_layer = nil  # prevent immediate trigger of onLayerRemoved
         @model.start_operation('Unhide Back Faces', true, false, transparent)
@@ -105,6 +143,7 @@ module Chroma
     end
 
     def onLayerRemoved(layers, layer)
+      # TODO is this guaranteed to execute before onTransactionUndo?
       if !@culled_layer.nil? && layers[LAYER_NAME].nil?
         #puts "layer removed unexpectedly! probably undo/redo"
         @culled_layer = nil
@@ -120,7 +159,7 @@ module Chroma
     end
 
     def update_hidden_faces
-      if !@enabled
+      if !active?
         return
       end
       cam_eye = @model.active_view.camera.eye
@@ -181,9 +220,6 @@ module Chroma
     end
 
     def reset_delay
-      if !@enabled
-        return
-      end
       if !@reset_flag
         @reset_flag = true
         UI.start_timer(0.1, false) {
@@ -210,6 +246,7 @@ module Chroma
   class BackfaceModelObserver < Sketchup::ModelObserver
     def initialize(manager)
       @manager = manager
+      @redo_stack = 0
     end
 
     def onPreSaveModel(model)
@@ -223,6 +260,24 @@ module Chroma
     def onActivePathChanged(model)
       # can't reset immediately or it gets caught in an infinite undo loop
       @manager.reset_delay
+    end
+
+    def onTransactionCommit(manager)
+      @redo_stack = 0
+      @manager.unpause
+    end
+
+    def onTransactionUndo(manager)
+      @redo_stack += 1
+      @manager.pause
+    end
+
+    def onTransactionRedo(manager)
+      @redo_stack -= 1
+      if @redo_stack <= 0
+        @redo_stack = 0
+        @manager.unpause
+      end
     end
   end
 
@@ -262,6 +317,7 @@ module Chroma
   def self.hide_backfaces
     manager = BackfaceManager.add_manager(Sketchup.active_model)
     manager.enable
+    manager.unpause
   end
 
   def self.show_backfaces
