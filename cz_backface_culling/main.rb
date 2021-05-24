@@ -10,6 +10,8 @@ end
 module Chroma
 
   class BackfaceManager
+    LAYER_NAME = "Hide Back Faces"
+
     def initialize(model)
       @model = model
       @model.backface_manager = self
@@ -34,12 +36,12 @@ module Chroma
     end
 
     def get_culled_layer
-      layer = @model.layers["culled"]
+      layer = @model.layers[LAYER_NAME]
       if !layer.nil?
         return layer
       end
       @model.start_operation('Hide Back Faces', true, false, true)
-      layer = @model.layers.add("culled")
+      layer = @model.layers.add(LAYER_NAME)
       layer.visible = false
       layer.page_behavior = LAYER_HIDDEN_BY_DEFAULT
       @model.commit_operation
@@ -107,8 +109,8 @@ module Chroma
 
     def unhide_all
       @model.start_operation('Unhide Back Faces', true, false, true)
-      if !@model.layers["culled"].nil?
-        @model.layers.remove("culled", false)
+      if !@model.layers[LAYER_NAME].nil?
+        @model.layers.remove(LAYER_NAME, false)
       end
       @model.commit_operation
     end
