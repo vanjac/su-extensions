@@ -164,6 +164,7 @@ module Chroma
       end
       cam_eye = @model.active_view.camera.eye
       layer0 = @model.layers["Layer0"]  # aka "untagged"
+      selection = @model.selection
 
       operation_started = false
       # prevents starting an empty operation and overwriting the redo stack
@@ -179,6 +180,13 @@ module Chroma
           if entity.is_a?(Sketchup::Face)
             if entity.hidden?
               # ignore
+            elsif selection.include?(entity)
+              # avoid some crashes with performing operations on hidden faces
+              # eg. intersect faces with model
+              if entity.layer == @culled_layer
+                operation.call
+                entity.layer = layer0
+              end
             elsif entity.layer == @culled_layer
               if self.front_face_visible(entity, cam_eye)
                 operation.call
