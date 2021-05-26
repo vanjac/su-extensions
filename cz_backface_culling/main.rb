@@ -166,7 +166,7 @@ module Chroma
       selection = @model.selection
 
       operation_started = false
-      # prevents starting an empty operation and overwriting the redo stack
+      # prevents starting an empty operation
       operation = lambda {
         if !operation_started
           operation_started = true
