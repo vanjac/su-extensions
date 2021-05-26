@@ -42,6 +42,7 @@ module Chroma
       @reset_flag = false
 
       @model.layers.add_observer(self)
+      @model.add_observer(BackfaceUndoObserver.new(self))
     end
 
     def enable
@@ -49,7 +50,6 @@ module Chroma
         return
       end
       @enabled = true
-      @paused = false
 
       @view_observer = BackfaceViewObserver.new(self)
       @model.active_view.add_observer(@view_observer)
@@ -82,7 +82,7 @@ module Chroma
     end
 
     def pause
-      if !@paused
+      if !@paused && @enabled
         @paused = true
         notification = UI::Notification.new(Chroma.backface_culling_extension,
           "Hide Back Faces interrupted");
@@ -101,7 +101,7 @@ module Chroma
     end
 
     def unpause
-      if @paused
+      if @paused && @enabled
         @paused = false
         update_hidden_faces
       end
@@ -241,35 +241,11 @@ module Chroma
   end
 
 
-  # active only when back faces hidden
-  class BackfaceViewObserver < Sketchup::ViewObserver
-    def initialize(manager)
-      @manager = manager
-    end
-
-    def onViewChanged(view)
-      @manager.update_hidden_faces
-    end
-  end
-
-  # active only when back faces hidden
-  class BackfaceModelObserver < Sketchup::ModelObserver
+  # active for lifetime of BackfaceManager
+  class BackfaceUndoObserver < Sketchup::ModelObserver
     def initialize(manager)
       @manager = manager
       @redo_stack = 0
-    end
-
-    def onPreSaveModel(model)
-      @manager.remove_culled_layer(true)
-    end
-
-    def onPostSaveModel(model)
-      @manager.create_culled_layer(true)
-    end
-
-    def onActivePathChanged(model)
-      # can't reset immediately or it gets caught in an infinite undo loop
-      @manager.reset_delay
     end
 
     def onTransactionCommit(manager)
@@ -288,6 +264,37 @@ module Chroma
         @redo_stack = 0
         @manager.unpause
       end
+    end
+  end
+
+  # active only when back faces hidden
+  class BackfaceViewObserver < Sketchup::ViewObserver
+    def initialize(manager)
+      @manager = manager
+    end
+
+    def onViewChanged(view)
+      @manager.update_hidden_faces
+    end
+  end
+
+  # another model obserer, active only when back faces hidden
+  class BackfaceModelObserver < Sketchup::ModelObserver
+    def initialize(manager)
+      @manager = manager
+    end
+
+    def onPreSaveModel(model)
+      @manager.remove_culled_layer(true)
+    end
+
+    def onPostSaveModel(model)
+      @manager.create_culled_layer(true)
+    end
+
+    def onActivePathChanged(model)
+      # can't reset immediately or it gets caught in an infinite undo loop
+      @manager.reset_delay
     end
   end
 
