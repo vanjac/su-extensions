@@ -10,7 +10,7 @@ A handful of useful extensions for SketchUp. Tested with SketchUp Make 2017 on W
 
 Adds a toggle under the Extensions menu which hides the back sides of faces -- this is also known as "back-face culling." As you orbit/pan around the scene, faces will be continuously updated. This is especially useful for working with interior spaces, or previewing how a model will appear in game engines that render single-sided polygons. You can reverse faces (by right clicking and choosing "Reverse Faces") to flip which side is considered "front."
 
-Hide Back Faces only applies to untagged faces (aka "Layer 0"), and doesn't apply to groups or components unless you edit them. Faces that are selected will not be affected either.
+Hide Back Faces only applies to untagged faces (aka "Layer 0"), and doesn't apply to groups or components unless you edit them. Selected faces will not be hidden either.
 
 The extension works by moving all hidden faces to a separate, hidden tag. The faces are only updated when you move the camera. They may get out of sync while using other tools; just move the camera slightly to update.
 
@@ -19,6 +19,6 @@ You can use Sketchup's shortcut preferences to attach a shortcut to the menu ite
 ### Known issues
 These are a result of the limitations of Ruby extensions.
 - If you undo a command while Hide Back Faces is enabled, it will temporarily pause to avoid clearing Redo commands. It resumes automatically when you make any other change.
-- Select All and box select will only select visible faces. (Triple-clicking will select all connected faces, even hidden.)
-- When deleting a selected face that's hidden, some edges will appear to remain. Just move the camera and they'll disappear.
+- Select All and box-select will only select visible faces. (Triple-clicking will select all connected faces, even hidden.)
+- When deleting selected faces/edges that are hidden, some edges will appear to remain. Just move the camera and they'll disappear.
 - It can be slow with large numbers of faces in a single object
