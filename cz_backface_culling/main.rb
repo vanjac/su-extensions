@@ -223,8 +223,10 @@ module Chroma
 
     # necessary when the active path changes
     def reset
-      remove_culled_layer(true)
-      create_culled_layer(true)
+      if active?
+        remove_culled_layer(true)
+        create_culled_layer(true)
+      end
     end
 
     def reset_delay
