@@ -7,7 +7,7 @@ module Chroma
     ex = SketchupExtension.new('Fly Tool', 'cz_fly/main')
     ex.description = 'Fly using noclip-style controls'
     ex.version = '-1'
-    ex.creator = 'vantjac'
+    ex.creator = 'Jacob van\'t Hoog'
     Sketchup.register_extension(ex, true)
     file_loaded(__FILE__)
   end

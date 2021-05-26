@@ -7,7 +7,7 @@ module Chroma
     ex = SketchupExtension.new('Dynamic Animations', 'zz_dynamic_anim/main')
     ex.description = 'Extends animation capabilities of Dynamic Components'
     ex.version = '-1'
-    ex.creator = 'vanjac'
+    ex.creator = 'Jacob van\'t Hoog'
     Sketchup.register_extension(ex, true)
     file_loaded(__FILE__)
   end
