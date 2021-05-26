@@ -109,12 +109,11 @@ module Chroma
 
     def create_culled_layer(transparent = false)
       if @culled_layer.nil?
-        @culled_layer = true  # prevent immediate trigger of onLayerAdded
         @model.start_operation('Hide Back Faces', true, false, transparent)
         @culled_layer = @model.layers.add(LAYER_NAME)
         @culled_layer.visible = false
         @culled_layer.page_behavior = LAYER_HIDDEN_BY_DEFAULT
-        @model.commit_operation
+        @model.commit_operation  # onLayerAdded should trigger here
 
         update_hidden_faces
       end
@@ -126,14 +125,15 @@ module Chroma
           @culled_layer = nil
           return
         end
-        layer = @culled_layer
-        @culled_layer = nil  # prevent immediate trigger of onLayerRemoved
         @model.start_operation('Unhide Back Faces', true, false, transparent)
-        @model.layers.remove(layer, false)
-        @model.commit_operation
+        @model.layers.remove(@culled_layer, false)
+        @culled_layer = nil
+        @model.commit_operation  # onLayerRemoved should trigger here
       end
     end
 
+    # these seem to execute BEFORE onTransactionUndo/Redo when an undo event
+    # causes layers to change
     def onLayerAdded(layers, layer)
       if @culled_layer.nil? && layer.name == LAYER_NAME
         #puts "layer added unexpectedly! probably undo/redo"
@@ -143,7 +143,6 @@ module Chroma
     end
 
     def onLayerRemoved(layers, layer)
-      # TODO is this guaranteed to execute before onTransactionUndo?
       if !@culled_layer.nil? && layers[LAYER_NAME].nil?
         #puts "layer removed unexpectedly! probably undo/redo"
         @culled_layer = nil
