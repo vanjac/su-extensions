@@ -18,7 +18,7 @@ module Chroma
 
     def self.add_manager(model)
       manager = get_manager(model)
-      if manager == nil
+      if manager.nil?
         manager = BackfaceManager.new(model)
         @@model_managers[model] = manager
       end
