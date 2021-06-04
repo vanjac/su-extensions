@@ -12,12 +12,8 @@ module Chroma
     LAYER_NAME = "Hide Back Faces"
     @@model_managers = {}
 
-    def self.get_manager(model)
-      return @@model_managers[model]
-    end
-
     def self.add_manager(model)
-      manager = get_manager(model)
+      manager = @@model_managers[model]
       if manager.nil?
         manager = BackfaceManager.new(model)
         @@model_managers[model] = manager
@@ -25,8 +21,12 @@ module Chroma
       return manager
     end
 
+    def self.remove_manager(model)
+      @@model_managers.delete(model)
+    end
+
     def self.backfaces_hidden(model)
-      manager = get_manager(model)
+      manager = @@model_managers[model]
       if manager.nil?
         return false
       else
@@ -321,11 +321,9 @@ module Chroma
     end
 
     def resetObservers(model)
-      # since model objects are reused on Windows for new models
-      manager = BackfaceManager.get_manager(model)
-      if !manager.nil?
-        manager.disable
-      end
+      # model objects are reused on Windows for new models, but observers are
+      # automatically removed.
+      BackfaceManager.remove_manager(model)
     end
   end
 
