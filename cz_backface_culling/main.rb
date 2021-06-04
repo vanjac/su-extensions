@@ -108,7 +108,7 @@ module Chroma
     end
 
     def create_culled_layer(transparent = false)
-      if @culled_layer.nil?
+      if @culled_layer.nil? || @culled_layer.deleted?
         @model.start_operation('Hide Back Faces', true, false, transparent)
         @culled_layer = @model.layers.add(LAYER_NAME)
         @culled_layer.visible = false
@@ -277,7 +277,7 @@ module Chroma
     end
   end
 
-  # another model obserer, active only when back faces hidden
+  # another model observer, active only when back faces hidden
   class BackfaceModelObserver < Sketchup::ModelObserver
     def initialize(manager)
       @manager = manager
