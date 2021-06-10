@@ -55,6 +55,8 @@ module Chroma
       @model.active_view.add_observer(@view_observer)
       @model_observer = BackfaceModelObserver.new(self)
       @model.add_observer(@model_observer)
+      @selection_observer = BackfaceSelectionObserver.new(self)
+      @model.selection.add_observer(@selection_observer)
       @definitions_observer = BackfaceDefinitionsObserver.new(self)
       @model.definitions.add_observer(@definitions_observer)
 
@@ -71,6 +73,8 @@ module Chroma
       @view_observer = nil
       @model.remove_observer(@model_observer)
       @model_observer = nil
+      @model.selection.remove_observer(@selection_observer)
+      @selection_observer = nil
       @model.definitions.remove_observer(@definitions_observer)
       @definitions_observer = nil
 
@@ -197,10 +201,10 @@ module Chroma
                 entity.layer = @culled_layer
               end
             end
-          elsif entity.is_a?(Sketchup::Edge) && entity.layer == @culled_layer
-            # edges shouldn't be here!
+          elsif entity.layer == @culled_layer
+            # only faces should be in the culled layer!
             operation.call
-            #puts "fixing broken edge"
+            #puts "fixing " + entity.to_s
             entity.layer = layer0
           end
         }
@@ -293,6 +297,20 @@ module Chroma
     def onActivePathChanged(model)
       # can't reset immediately or it gets caught in an infinite undo loop
       @manager.reset_delay
+    end
+  end
+
+  class BackfaceSelectionObserver < Sketchup::SelectionObserver
+    def initialize(manager)
+      @manager = manager
+    end
+
+    def onSelectionBulkChange(selection)
+      @manager.update_hidden_faces
+    end
+
+    def onSelectionCleared(selection)
+      @manager.update_hidden_faces
     end
   end
 
