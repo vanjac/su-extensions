@@ -53,7 +53,7 @@ module Chroma
 
       @view_observer = BackfaceViewObserver.new(self)
       @model.active_view.add_observer(@view_observer)
-      @model_observer = BackfaceModelObserver.new(self, @model)
+      @model_observer = BackfaceModelObserver.new(self)
       @model.add_observer(@model_observer)
       @definitions_observer = BackfaceDefinitionsObserver.new(self)
       @model.definitions.add_observer(@definitions_observer)
@@ -70,7 +70,6 @@ module Chroma
       @model.active_view.remove_observer(@view_observer)
       @view_observer = nil
       @model.remove_observer(@model_observer)
-      @model_observer.remove
       @model_observer = nil
       @model.definitions.remove_observer(@definitions_observer)
       @definitions_observer = nil
@@ -158,7 +157,7 @@ module Chroma
       return normal.dot(cam_dir) >= 0
     end
 
-    def update_hidden_faces(remove_broken_edges = false)
+    def update_hidden_faces
       if !active?
         return
       end
@@ -201,15 +200,8 @@ module Chroma
           elsif entity.is_a?(Sketchup::Edge) && entity.layer == @culled_layer
             # edges shouldn't be here!
             operation.call
-            if remove_broken_edges
-              #puts "deleting broken edge"
-              @culled_layer.visible = true
-              entity.erase!
-              @culled_layer.visible = false
-            else
-              #puts "fixing broken edge"
-              entity.layer = layer0
-            end
+            #puts "fixing broken edge"
+            entity.layer = layer0
           end
         }
       }
@@ -286,17 +278,8 @@ module Chroma
 
   # another model observer, active only when back faces hidden
   class BackfaceModelObserver < Sketchup::ModelObserver
-    def initialize(manager, model)
+    def initialize(manager)
       @manager = manager
-
-      @entities_observer = BackfaceEntitiesObserver.new(@manager)
-      @active_entities = model.active_entities
-      @active_entities.add_observer(@entities_observer)
-    end
-
-    def remove
-      @active_entities.remove_observer(@entities_observer)
-      @entities_observer = nil
     end
 
     def onPreSaveModel(model)
@@ -310,31 +293,6 @@ module Chroma
     def onActivePathChanged(model)
       # can't reset immediately or it gets caught in an infinite undo loop
       @manager.reset_delay
-
-      @active_entities.remove_observer(@entities_observer)
-      @active_entities = model.active_entities
-      @active_entities.add_observer(@entities_observer)
-    end
-  end
-
-  # managed by BackfaceModelObserver
-  class BackfaceEntitiesObserver < Sketchup::EntitiesObserver
-    def initialize(manager)
-      @manager = manager
-      @update_flag = false
-    end
-
-    def onElementRemoved(entities, entity_id)
-      # TODO how to determine erase initiated by user??
-      if !@update_flag
-        @update_flag = true
-        UI.start_timer(0.1, false) {
-          #puts "erase entities!"
-          # fixes bug with deleting culled faces
-          @manager.update_hidden_faces(true)
-          @update_flag = false
-        }
-      end
     end
   end
 
