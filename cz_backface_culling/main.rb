@@ -57,8 +57,6 @@ module Chroma
       @model.add_observer(@model_observer)
       @selection_observer = BackfaceSelectionObserver.new(self)
       @model.selection.add_observer(@selection_observer)
-      @definitions_observer = BackfaceDefinitionsObserver.new(self)
-      @model.definitions.add_observer(@definitions_observer)
 
       create_culled_layer
     end
@@ -75,8 +73,6 @@ module Chroma
       @model_observer = nil
       @model.selection.remove_observer(@selection_observer)
       @selection_observer = nil
-      @model.definitions.remove_observer(@definitions_observer)
-      @definitions_observer = nil
 
       remove_culled_layer
     end
@@ -313,11 +309,12 @@ module Chroma
     end
 
     def onSelectionBulkChange(selection)
-      # weird hack to detect if the user tried to delete something
+      # weird hack to detect if the user tried to delete/cut something
       # normally onSelectionCleared would be called if the selection was empty
+      # there can be false positives but it should be fine
       if selection.empty?
         #puts "deleted something"
-        # fixes bug with deleting edges between hidden faces
+        # fixes bug with deleting/cutting edges between hidden faces
         @manager.update_hidden_faces(true)
       else
         @manager.update_hidden_faces
@@ -326,20 +323,6 @@ module Chroma
 
     def onSelectionCleared(selection)
       @manager.update_hidden_faces
-    end
-  end
-
-  # active only when back faces hidden
-  class BackfaceDefinitionsObserver < Sketchup::DefinitionsObserver
-    def initialize(manager)
-      @manager = manager
-    end
-
-    # a new component or group was created
-    def onComponentAdded(definitions, definition)
-      # refresh to prevent groups/components from capturing hidden faces
-      # TODO no longer necessary with selection observer?
-      @manager.reset_delay
     end
   end
 
