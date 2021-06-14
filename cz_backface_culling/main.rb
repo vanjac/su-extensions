@@ -287,14 +287,22 @@ module Chroma
   class BackfaceModelObserver < Sketchup::ModelObserver
     def initialize(manager)
       @manager = manager
+      @saving = false
     end
 
     def onPreSaveModel(model)
-      @manager.remove_culled_layer(true)
+      # fix an infinite loop of saving triggered when an autosave is deferred
+      # due to being in the middle of an operation
+      if !@saving
+        @saving = true
+        # save without hidden backfaces
+        @manager.remove_culled_layer(true)
+      end
     end
 
     def onPostSaveModel(model)
       @manager.create_culled_layer(true)
+      @saving = false
     end
 
     def onActivePathChanged(model)
