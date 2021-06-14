@@ -161,7 +161,7 @@ module Chroma
       return normal.dot(cam_dir) >= 0
     end
 
-    def update_hidden_faces
+    def update_hidden_faces(remove_broken_edges = false)
       if !active?
         return
       end
@@ -204,8 +204,15 @@ module Chroma
           elsif entity.layer == @culled_layer
             # only faces should be in the culled layer!
             operation.call
-            #puts "fixing " + entity.to_s
-            entity.layer = layer0
+            if remove_broken_edges && entity.is_a?(Sketchup::Edge)
+              #puts "deleting broken edge"
+              @culled_layer.visible = true
+              entity.erase!
+              @culled_layer.visible = false
+            else
+              #puts "fixing " + entity.to_s
+              entity.layer = layer0
+            end
           end
         }
       }
@@ -306,7 +313,15 @@ module Chroma
     end
 
     def onSelectionBulkChange(selection)
-      @manager.update_hidden_faces
+      # weird hack to detect if the user tried to delete something
+      # normally onSelectionCleared would be called if the selection was empty
+      if selection.empty?
+        #puts "deleted something"
+        # fixes bug with deleting edges between hidden faces
+        @manager.update_hidden_faces(true)
+      else
+        @manager.update_hidden_faces
+      end
     end
 
     def onSelectionCleared(selection)
@@ -323,6 +338,7 @@ module Chroma
     # a new component or group was created
     def onComponentAdded(definitions, definition)
       # refresh to prevent groups/components from capturing hidden faces
+      # TODO no longer necessary with selection observer?
       @manager.reset_delay
     end
   end
