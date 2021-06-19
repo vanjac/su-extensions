@@ -2,19 +2,68 @@ require 'sketchup.rb'
 
 module Chroma
 
-  def self.get_selected_schemas(selection)
-    schemas = {}
+  def self.each_definition(selection, &block)
     selection.each{ |entity|
       if entity.is_a?(Sketchup::ComponentInstance) ||
           entity.is_a?(Sketchup::Group)
-        schema_dict = entity.definition.attribute_dictionary(
-          "AppliedSchemaTypes")
-        if schema_dict
-          schema_dict.each_key{ |key| schemas[key] = true }
-        end
+        block.call(entity.definition)
+      end
+    }
+  end
+
+  def self.get_selected_schemas(selection)
+    schemas = {}
+    self.each_definition(selection) { |definition|
+      schema_dict = definition.attribute_dictionary(
+        "AppliedSchemaTypes")
+      if schema_dict
+        schema_dict.each_key{ |key| schemas[key] = true }
       end
     }
     return schemas.keys
+  end
+
+  def self.get_schema_type(definition, schema)
+    schema_dict = definition.attribute_dictionary(
+      "AppliedSchemaTypes")
+    if schema_dict
+      return schema_dict[schema]
+    else
+      return nil
+    end
+  end
+
+  def self.get_classification_paths(definition, schema)
+    type = self.get_schema_type(definition, schema)
+    if !type
+      return []
+    end
+    dict = definition.attribute_dictionary(schema)
+    if !dict
+      return []
+    else
+      return self.get_paths_recursive(dict, [schema, type])
+    end
+  end
+
+  def self.get_paths_recursive(dict, base_path)
+    if !(/[[:upper:]]/.match(dict.name[0]))
+      return []
+    end
+
+    paths = []
+    if dict["value"]
+      paths.push(base_path)
+    end
+
+    nested = dict.attribute_dictionaries
+    if nested
+      nested.each{ |child|
+        paths += self.get_paths_recursive(child, base_path + [child.name])
+      }
+    end
+
+    return paths
   end
 
   unless file_loaded?(__FILE__)
@@ -30,12 +79,9 @@ module Chroma
         next
       end
       error = false
-      Sketchup.active_model.selection.each{ |entity|
-        if entity.is_a?(Sketchup::ComponentInstance) ||
-            entity.is_a?(Sketchup::Group)
-          if !entity.definition.add_classification(result[0], result[1])
-            error = true
-          end
+      self.each_definition(Sketchup.active_model.selection) { |definition|
+        if !definition.add_classification(result[0], result[1])
+          error = true
         end
       }
       if error
@@ -54,11 +100,8 @@ module Chroma
       if !result
         next
       end
-      Sketchup.active_model.selection.each{ |entity|
-        if entity.is_a?(Sketchup::ComponentInstance) ||
-            entity.is_a?(Sketchup::Group)
-          entity.definition.remove_classification(result[0], "")
-        end
+      self.each_definition(Sketchup.active_model.selection) { |definition|
+        definition.remove_classification(result[0], "")
       }
     }
 
@@ -67,7 +110,13 @@ module Chroma
       if schemas.length != 0
         submenu = context_menu.add_submenu("Classifications")
         schemas.each { |schema|
-          submenu.add_item(schema) { }
+          submenu.add_item(schema) {
+            self.each_definition(Sketchup.active_model.selection) { |definition|
+              self.get_classification_paths(definition, schema).each{ |path|
+                puts path.join(", ")
+              }
+            }
+          }
         }
       end
     }
