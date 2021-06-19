@@ -2,6 +2,8 @@ require 'sketchup.rb'
 
 module Chroma
 
+  ClassificationAttribute = Struct.new(:path, :label, :dict)
+
   def self.each_definition(selection, &block)
     selection.each{ |entity|
       if entity.is_a?(Sketchup::ComponentInstance) ||
@@ -33,7 +35,7 @@ module Chroma
     end
   end
 
-  def self.get_classification_paths(definition, schema)
+  def self.get_attributes(definition, schema)
     type = self.get_schema_type(definition, schema)
     if !type
       return []
@@ -42,28 +44,47 @@ module Chroma
     if !dict
       return []
     else
-      return self.get_paths_recursive(dict, [schema, type])
+      attr_list = []
+      self.get_attributes_recursive(dict, [schema, type], attr_list)
+      return attr_list
     end
   end
 
-  def self.get_paths_recursive(dict, base_path)
-    if !(/[[:upper:]]/.match(dict.name[0]))
-      return []
+  def self.get_attributes_recursive(dict, base_path, attr_list)
+    if dict["is_hidden"]
+      return
     end
 
-    paths = []
     if dict["value"]
-      paths.push(base_path)
+      attr_list.push(ClassificationAttribute.new(base_path, base_path[2], dict))
     end
 
     nested = dict.attribute_dictionaries
     if nested
       nested.each{ |child|
-        paths += self.get_paths_recursive(child, base_path + [child.name])
+        self.get_attributes_recursive(child, base_path + [child.name],
+          attr_list)
       }
     end
+  end
 
-    return paths
+  def self.edit_classification_values(definition, schema)
+    labels = []
+    values = []
+    options = []
+    self.get_attributes(definition, schema).each{ |a|
+      a_type = a.dict["attribute_type"]
+      a_opt = a.dict["options"]
+      labels.push(a.label + " (" + a_type + ")")
+      values.push(definition.get_classification_value(a.path).to_s)
+      if a_opt && a_type == "enumeration"
+        options.push(a_opt.join("|"))
+      else
+        options.push("")
+      end
+    }
+    result = UI.inputbox(labels, values, options,
+      "Edit " + definition.name + " : " + schema)
   end
 
   unless file_loaded?(__FILE__)
@@ -111,11 +132,7 @@ module Chroma
         submenu = context_menu.add_submenu("Classifications")
         schemas.each { |schema|
           submenu.add_item(schema) {
-            self.each_definition(Sketchup.active_model.selection) { |definition|
-              self.get_classification_paths(definition, schema).each{ |path|
-                puts path.join(", ")
-              }
-            }
+            self.edit_classification_values(Sketchup.active_model.selection[0].definition, schema)  # TODO
           }
         }
       end
