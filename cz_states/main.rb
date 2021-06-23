@@ -132,6 +132,7 @@ module Chroma
         if props.count == 0
           return
         end
+        menu.add_separator
         submenu = menu.add_submenu("Animated Properties")
         props.each{ |prop|
           selected = @animated_props.include?([c, prop])
@@ -222,10 +223,6 @@ module Chroma
 
   unless file_loaded?(__FILE__)
     # TODO improve interface, error checking...
-    UI.menu.add_item('Edit States') {
-      model = Sketchup.active_model
-      StateModelManager.edit_states(model, model.selection[0])
-    }
     UI.menu.add_item('Close Editor') {
       StateModelManager.close_editor(Sketchup.active_model)
     }
@@ -238,6 +235,18 @@ module Chroma
       editor = StateModelManager.get_editor(Sketchup.active_model)
       if editor
         editor.context_menu(menu, Sketchup.active_model)
+      else
+        model = Sketchup.active_model
+        if model.selection.count == 1
+          selected = model.selection[0]
+          if selected.is_a?(Sketchup::ComponentInstance) ||
+              selected.is_a?(Sketchup::Group)
+            menu.add_separator
+            menu.add_item('Edit States') {
+              StateModelManager.edit_states(model, selected)
+            }
+          end
+        end
       end
     }
     file_loaded(__FILE__)
