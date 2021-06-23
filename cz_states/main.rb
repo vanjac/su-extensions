@@ -5,7 +5,6 @@ Sketchup::load 'cz_states/props'
 
 module Chroma
 
-  PAGE_STATE_DICT = "cz_state"
   COMPONENT_STATES_DICT = "cz_states"
   CURRENT_STATE_ATTR = "current"
 
@@ -38,6 +37,8 @@ module Chroma
   end
 
   class StatesEditor
+    PAGE_STATE_DICT = "cz_state"
+
     attr_reader :component
 
     def initialize(component)
@@ -45,9 +46,15 @@ module Chroma
       @component = component
       @animated_props = Set[]  # set of [component, prop]
 
+      if @component.is_a?(Sketchup::Group)
+        @component.make_unique
+      end
+
       create_pages
       puts "animated props:"
       @animated_props.each{|item| puts "  " + item.to_s}
+
+      # TODO apply current state
 
       @pages_observer = StatePagesObserver.new(self)
       @component.model.pages.add_observer(@pages_observer)
@@ -79,14 +86,25 @@ module Chroma
     def create_pages
       pages = @component.model.pages
       delete_all_pages(pages)
-      states_dict = @component.attribute_dictionary(COMPONENT_STATES_DICT)
-      if !states_dict
+      inst_states_dict = @component.attribute_dictionary(COMPONENT_STATES_DICT)
+      def_states_dict = @component.definition.attribute_dictionary(
+        COMPONENT_STATES_DICT)
+
+      copy_states_dict_to_pages(def_states_dict, pages)
+      copy_states_dict_to_pages(inst_states_dict, pages)  # overrides definition
+    end
+
+    def copy_states_dict_to_pages(states_dict, pages)
+      if !states_dict || !states_dict.attribute_dictionaries
         return
       end
 
       states_dict.attribute_dictionaries.each { |s_dict|
-        page = pages.add(s_dict.name, 0)
-        reset_page_properties(page)
+        page = pages[s_dict.name]
+        if !page
+          page = pages.add(s_dict.name, 0)
+          reset_page_properties(page)
+        end
         page_dict = page.attribute_dictionary(PAGE_STATE_DICT, true)
         s_dict.each{ |key, value|
           component, prop = ComponentProps.key_to_component_prop(key, @component)
@@ -105,8 +123,20 @@ module Chroma
     end
 
     def store_pages
-      @component.attribute_dictionaries.delete(COMPONENT_STATES_DICT)
-      states_dict = @component.attribute_dictionary(COMPONENT_STATES_DICT, true)
+      definition = @component.definition
+      # we can't merge these, even for Groups, because the group could later be
+      # converted into a component (which preserves inst/def dictionaries)
+      if @component.attribute_dictionary(COMPONENT_STATES_DICT)
+        @component.attribute_dictionaries.delete(COMPONENT_STATES_DICT)
+      end
+      inst_states_dict = @component.attribute_dictionary(
+        COMPONENT_STATES_DICT, true)
+      if definition.attribute_dictionary(COMPONENT_STATES_DICT)
+        definition.attribute_dictionaries.delete(COMPONENT_STATES_DICT)
+      end
+      def_states_dict = definition.attribute_dictionary(
+        COMPONENT_STATES_DICT, true)
+
       pages = @component.model.pages
 
       pages.each{ |page|
@@ -114,13 +144,17 @@ module Chroma
         if !page_dict
           next
         end
-        s_dict = states_dict.attribute_dictionary(page.name, true)
         page_dict.each{ |key, value|
-          s_dict[key] = value
+          if ComponentProps.is_instance_prop(key)
+            inst_states_dict.set_attribute(page.name, key, value)
+          else
+            def_states_dict.set_attribute(page.name, key, value)
+          end
         }
       }
 
-      states_dict[CURRENT_STATE_ATTR] = pages.selected_page.name
+      inst_states_dict[CURRENT_STATE_ATTR] = pages.selected_page.name
+      def_states_dict[CURRENT_STATE_ATTR] = pages.selected_page.name
       delete_all_pages(pages)
     end
 

@@ -85,6 +85,11 @@ module Chroma
       return component, prop
     end
 
+    def self.is_instance_prop(key)
+      # currently only one instance property
+      return key == "root:Transform"
+    end
+
   end
 
 end
