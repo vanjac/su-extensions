@@ -64,7 +64,7 @@ module Chroma
     end
 
     # not including "use" flags
-    def self.reset_page_properties(page)
+    def reset_page_properties(page)
       page.delay_time = 0
       page.transition_time = 0
     end
@@ -87,7 +87,7 @@ module Chroma
 
       states_dict.attribute_dictionaries.each { |s_dict|
         page = pages.add(s_dict.name, 0)
-        StatesEditor.reset_page_properties(page)
+        reset_page_properties(page)
         page_dict = page.attribute_dictionary(PAGE_STATE_DICT, true)
         s_dict.each{ |key, value|
           component, prop = ComponentProps.key_to_component_prop(key, model)
@@ -197,7 +197,7 @@ module Chroma
       page.use_shadow_info = false
       page.use_style = false
 
-      StatesEditor.reset_page_properties(page)
+      @editor.reset_page_properties(page)
       @editor.update_state(page)
     end
   end
