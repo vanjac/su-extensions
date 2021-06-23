@@ -54,7 +54,8 @@ module Chroma
       puts "animated props:"
       @animated_props.each{|item| puts "  " + item.to_s}
 
-      # TODO apply current state
+      # definition state may not match instance state
+      set_state(@component.model.pages.selected_page)
 
       @pages_observer = StatePagesObserver.new(self)
       @component.model.pages.add_observer(@pages_observer)
