@@ -6,6 +6,50 @@ module Chroma
 
   PAGE_STATE_DICT = "cz_state"
 
+  module StateModelManager
+    @@states_editors = {}
+
+    def self.edit_states(model, component)
+      editor = @@states_editors[model]
+      if editor && editor.component != component
+        editor.close
+        editor = nil
+      end
+      if !editor
+        editor = StatesEditor.new(component)
+        @@states_editors[model] = editor
+      end
+      return editor
+    end
+
+    def self.close_editor(model)
+      editor = @@states_editors.delete(model)
+      if editor
+        editor.close
+      end
+    end
+  end
+
+  class StatesEditor
+    attr_reader :component
+
+    def initialize(component)
+      puts "init editor"
+      @component = component
+
+      @pages_observer = StatePagesObserver.new
+      @component.model.pages.add_observer(@pages_observer)
+      @frame_observer_id = Sketchup::Pages.add_frame_change_observer(
+        StateFrameObserver.new)
+    end
+
+    def close
+      puts "close editor"
+      component.model.pages.remove_observer(@pages_observer)
+      Sketchup::Pages.remove_frame_change_observer(@frame_observer_id)
+    end
+  end
+
   class StatePagesObserver < Sketchup::PagesObserver
 
     def onElementAdded(pages, page)
@@ -55,16 +99,22 @@ module Chroma
           component = to_page.model.find_entity_by_persistent_id(id_str.to_i)
           if component
             ComponentProps.set_prop_value(component, prop, value)
-          end  # TODO else delete the key?
+          else
+            puts "can't find component " + id_str
+            # TODO delete the key?
+          end
         }
       end
     end
   end
 
   unless file_loaded?(__FILE__)
-    UI.menu.add_item('State Test') {
-      Sketchup.active_model.pages.add_observer(StatePagesObserver.new)
-      Sketchup::Pages.add_frame_change_observer(StateFrameObserver.new)
+    UI.menu.add_item('Edit States') {
+      model = Sketchup.active_model
+      StateModelManager.edit_states(model, model.selection[0])
+    }
+    UI.menu.add_item('Close Editor') {
+      StateModelManager.close_editor(Sketchup.active_model)
     }
     file_loaded(__FILE__)
   end
