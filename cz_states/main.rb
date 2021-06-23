@@ -1,4 +1,5 @@
 require 'sketchup.rb'
+require 'set'
 
 Sketchup::load 'cz_states/props'
 
@@ -23,6 +24,10 @@ module Chroma
       return editor
     end
 
+    def self.get_editor(model)
+      return @@states_editors[model]
+    end
+
     def self.close_editor(model)
       editor = @@states_editors.delete(model)
       if editor
@@ -37,8 +42,11 @@ module Chroma
     def initialize(component)
       puts "init editor"
       @component = component
+      @animated_props = Set[]  # set of [component, prop]
 
       create_pages
+      puts "animated props:"
+      @animated_props.each{|item| puts "  " + item.to_s}
 
       @pages_observer = StatePagesObserver.new
       @component.model.pages.add_observer(@pages_observer)
@@ -71,7 +79,8 @@ module Chroma
     end
 
     def create_pages
-      pages = @component.model.pages
+      model = @component.model
+      pages = model.pages
       delete_all_pages(pages)
       states_dict = @component.attribute_dictionary(COMPONENT_STATES_DICT)
       if !states_dict
@@ -82,6 +91,11 @@ module Chroma
         StatesEditor.reset_page_properties(page)
         page_dict = page.attribute_dictionary(PAGE_STATE_DICT, true)
         s_dict.each{ |key, value|
+          component, prop = ComponentProps.key_to_component_prop(key, model)
+          if !component
+            next
+          end
+          @animated_props.add([component, prop])
           page_dict[key] = value
         }
       }
@@ -102,6 +116,40 @@ module Chroma
         }
       }
       delete_all_pages(pages)
+    end
+
+    def context_menu(menu, model)
+      if model.selection.length == 1  # TODO
+        c = model.selection[0]
+        props = ComponentProps.get_prop_list(c)
+        if props.count == 0
+          return
+        end
+        submenu = menu.add_submenu("Animated Properties")
+        props.each{ |prop|
+          selected = @animated_props.include?([c, prop])
+          item = submenu.add_item(prop) {
+            if !selected
+              add_prop(c, prop)
+            else
+              remove_prop(c, prop)
+            end
+          }
+          submenu.set_validation_proc(item) {
+            next selected ? MF_CHECKED : MF_UNCHECKED
+          }
+        }
+      end
+    end
+
+    def add_prop(component, prop)
+      @animated_props.add([component, prop])
+      # TODO
+    end
+
+    def remove_prop(component, prop)
+      @animated_props.delete([component, prop])
+      # TODO
     end
   end
 
@@ -154,7 +202,6 @@ module Chroma
           if component
             ComponentProps.set_prop_value(component, prop, value)
           else
-            puts "can't find component " + id_str
             # TODO delete the key?
           end
         }
@@ -169,6 +216,13 @@ module Chroma
     }
     UI.menu.add_item('Close Editor') {
       StateModelManager.close_editor(Sketchup.active_model)
+    }
+    # I can't find a way to remove a handler, so we can only add it at the start
+    UI.add_context_menu_handler { |menu|
+      editor = StateModelManager.get_editor(Sketchup.active_model)
+      if editor
+        editor.context_menu(menu, Sketchup.active_model)
+      end
     }
     file_loaded(__FILE__)
   end

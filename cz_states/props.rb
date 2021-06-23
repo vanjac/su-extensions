@@ -70,6 +70,9 @@ module Chroma
     def self.key_to_component_prop(key, model)
       id_str, prop = key.split(":")
       component = model.find_entity_by_persistent_id(id_str.to_i)
+      if !component
+        puts "can't find component " + id_str
+      end
       return component, prop
     end
 
