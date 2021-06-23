@@ -62,6 +62,17 @@ module Chroma
         component.attribute_dictionary(PROPS_DICT, true)[prop] = value
       end
     end
+
+    def self.component_prop_to_key(component, prop)
+      return component.persistent_id.to_s + ":" + prop
+    end
+
+    def self.key_to_component_prop(key, model)
+      id_str, prop = key.split(":")
+      component = model.find_entity_by_persistent_id(id_str.to_i)
+      return component, prop
+    end
+
   end
 
 end

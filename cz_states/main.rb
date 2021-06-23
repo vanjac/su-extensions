@@ -130,12 +130,12 @@ module Chroma
         if !result
           return
         end
-        id_str = component.persistent_id.to_s + ":"
         (0...(props.length)).each{ |i|
           if result[i] == "Yes"
             prop = props[i]
+            key = ComponentProps.component_prop_to_key(component, prop)
             value = ComponentProps.get_prop_value(component, prop)
-            page.attribute_dictionary(PAGE_STATE_DICT, true)[id_str + prop] = value
+            page.attribute_dictionary(PAGE_STATE_DICT, true)[key] = value
           end
         }
       end
@@ -146,11 +146,11 @@ module Chroma
     def frameChange(from_page, to_page, percent_done)
       #puts "From page #{from_page.to_s} to #{to_page.to_s} (#{percent_done * 100}%)"
 
+      model = to_page.model
       state_dict = to_page.attribute_dictionary(PAGE_STATE_DICT)
       if state_dict
         state_dict.each{ |key, value|
-          id_str, prop = key.split(":")
-          component = to_page.model.find_entity_by_persistent_id(id_str.to_i)
+          component, prop = ComponentProps.key_to_component_prop(key, model)
           if component
             ComponentProps.set_prop_value(component, prop, value)
           else
