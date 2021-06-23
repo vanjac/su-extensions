@@ -7,6 +7,7 @@ module Chroma
 
   PAGE_STATE_DICT = "cz_state"
   COMPONENT_STATES_DICT = "cz_states"
+  CURRENT_STATE_ATTR = "current"
 
   module StateModelManager
     @@states_editors = {}
@@ -69,13 +70,10 @@ module Chroma
     end
 
     def delete_all_pages(pages)
-      if pages.count == 0
-        return
-      end
-      delete_pages = []
-      # can't delete in each{}
-      pages.each { |page| delete_pages.push(page) }
-      delete_pages.each { |page| pages.erase(page) }
+      # can't delete in each{}, so we do this instead
+      (pages.count - 1).downto(0) { |i|
+        pages.erase(pages[i])
+      }
     end
 
     def create_pages
@@ -86,6 +84,7 @@ module Chroma
       if !states_dict
         return
       end
+
       states_dict.attribute_dictionaries.each { |s_dict|
         page = pages.add(s_dict.name, 0)
         StatesEditor.reset_page_properties(page)
@@ -99,12 +98,18 @@ module Chroma
           page_dict[key] = value
         }
       }
+
+      current = states_dict[CURRENT_STATE_ATTR]
+      if current
+        pages.selected_page = pages[current]
+      end
     end
 
     def store_pages
       @component.attribute_dictionaries.delete(COMPONENT_STATES_DICT)
       states_dict = @component.attribute_dictionary(COMPONENT_STATES_DICT, true)
       pages = @component.model.pages
+
       pages.each{ |page|
         page_dict = page.attribute_dictionary(PAGE_STATE_DICT)
         if !page_dict
@@ -115,6 +120,8 @@ module Chroma
           s_dict[key] = value
         }
       }
+
+      states_dict[CURRENT_STATE_ATTR] = pages.selected_page.name
       delete_all_pages(pages)
     end
 
