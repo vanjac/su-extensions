@@ -66,8 +66,7 @@ module Chroma
     end
   end
 
-  STATE_DEF_DICT = "cz_state_def"
-  STATE_INST_DICT = "cz_state_inst"
+  PAGE_STATE_DICT = "cz_state"
 
   class StatePagesObserver < Sketchup::PagesObserver
 
@@ -100,7 +99,7 @@ module Chroma
           if result[i] == "Yes"
             prop = props[i]
             value = ComponentProps.get_prop_value(component, prop)
-            page.attribute_dictionary(STATE_DEF_DICT, true)[id_str + prop] = value
+            page.attribute_dictionary(PAGE_STATE_DICT, true)[id_str + prop] = value
           end
         }
       end
@@ -111,9 +110,9 @@ module Chroma
     def frameChange(from_page, to_page, percent_done)
       #puts "From page #{from_page.to_s} to #{to_page.to_s} (#{percent_done * 100}%)"
 
-      def_dict = to_page.attribute_dictionary(STATE_DEF_DICT)
-      if def_dict
-        def_dict.each{ |key, value|
+      state_dict = to_page.attribute_dictionary(PAGE_STATE_DICT)
+      if state_dict
+        state_dict.each{ |key, value|
           id_str, prop = key.split(":")
           component = to_page.model.find_entity_by_persistent_id(id_str.to_i)
           if component
