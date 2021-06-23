@@ -161,7 +161,7 @@ module Chroma
       }
     end
 
-    def new_state(page)
+    def update_state(page)
       @animated_props.each{ |item|
         component, prop = item
         key = ComponentProps.component_prop_to_key(component, prop)
@@ -190,7 +190,7 @@ module Chroma
       page.use_style = false
 
       StatesEditor.reset_page_properties(page)
-      @editor.new_state(page)
+      @editor.update_state(page)
     end
   end
 
@@ -214,12 +214,17 @@ module Chroma
   end
 
   unless file_loaded?(__FILE__)
+    # TODO improve interface, error checking...
     UI.menu.add_item('Edit States') {
       model = Sketchup.active_model
       StateModelManager.edit_states(model, model.selection[0])
     }
     UI.menu.add_item('Close Editor') {
       StateModelManager.close_editor(Sketchup.active_model)
+    }
+    UI.menu.add_item('Update State') {
+      editor = StateModelManager.get_editor(Sketchup.active_model)
+      editor.update_state(Sketchup.active_model.pages.selected_page)
     }
     # I can't find a way to remove a handler, so we can only add it at the start
     UI.add_context_menu_handler { |menu|
