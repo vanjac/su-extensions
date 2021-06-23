@@ -54,6 +54,12 @@ module Chroma
       store_pages
     end
 
+    # not including "use" flags
+    def self.reset_page_properties(page)
+      page.delay_time = 0
+      page.transition_time = 0
+    end
+
     def delete_all_pages(pages)
       if pages.count == 0
         return
@@ -73,6 +79,7 @@ module Chroma
       end
       states_dict.attribute_dictionaries.each { |s_dict|
         page = pages.add(s_dict.name, 0)
+        StatesEditor.reset_page_properties(page)
         page_dict = page.attribute_dictionary(PAGE_STATE_DICT, true)
         s_dict.each{ |key, value|
           page_dict[key] = value
@@ -111,9 +118,8 @@ module Chroma
       page.use_section_planes = false
       page.use_shadow_info = false
       page.use_style = false
-      # reset other properties
-      page.delay_time = 0
-      page.transition_time = 0
+
+      StatesEditor.reset_page_properties(page)
 
       selection = pages.model.selection
       if selection.length == 1  # TODO
