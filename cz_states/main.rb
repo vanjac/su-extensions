@@ -52,7 +52,7 @@ module Chroma
       @pages_observer = StatePagesObserver.new(self)
       @component.model.pages.add_observer(@pages_observer)
       @frame_observer_id = Sketchup::Pages.add_frame_change_observer(
-        StateFrameObserver.new)
+        StateFrameObserver.new(self))
     end
 
     def close
@@ -77,8 +77,7 @@ module Chroma
     end
 
     def create_pages
-      model = @component.model
-      pages = model.pages
+      pages = @component.model.pages
       delete_all_pages(pages)
       states_dict = @component.attribute_dictionary(COMPONENT_STATES_DICT)
       if !states_dict
@@ -90,7 +89,7 @@ module Chroma
         reset_page_properties(page)
         page_dict = page.attribute_dictionary(PAGE_STATE_DICT, true)
         s_dict.each{ |key, value|
-          component, prop = ComponentProps.key_to_component_prop(key, model)
+          component, prop = ComponentProps.key_to_component_prop(key, @component)
           if !component
             next
           end
@@ -153,7 +152,7 @@ module Chroma
     # add to existing states
     def add_prop(component, prop)
       @animated_props.add([component, prop])
-      key = ComponentProps.component_prop_to_key(component, prop)
+      key = ComponentProps.component_prop_to_key(component, prop, @component)
       value = ComponentProps.get_prop_value(component, prop)
       @component.model.pages.each{ |page|
         page.set_attribute(PAGE_STATE_DICT, key, value)
@@ -163,7 +162,7 @@ module Chroma
     # remove from existing states
     def remove_prop(component, prop)
       @animated_props.delete([component, prop])
-      key = ComponentProps.component_prop_to_key(component, prop)
+      key = ComponentProps.component_prop_to_key(component, prop, @component)
       @component.model.pages.each{ |page|
         page.delete_attribute(PAGE_STATE_DICT, key)
       }
@@ -172,15 +171,28 @@ module Chroma
     def update_state(page)
       @animated_props.each{ |item|
         component, prop = item
-        key = ComponentProps.component_prop_to_key(component, prop)
+        key = ComponentProps.component_prop_to_key(component, prop, @component)
         value = ComponentProps.get_prop_value(component, prop)
         page.set_attribute(PAGE_STATE_DICT, key, value)
       }
     end
+
+    def set_state(page)
+      state_dict = page.attribute_dictionary(PAGE_STATE_DICT)
+      if state_dict
+        state_dict.each{ |key, value|
+          component, prop = ComponentProps.key_to_component_prop(key, @component)
+          if component
+            ComponentProps.set_prop_value(component, prop, value)
+          else
+            # TODO delete the key?
+          end
+        }
+      end
+    end
   end
 
   class StatePagesObserver < Sketchup::PagesObserver
-
     def initialize(editor)
       @editor = editor
     end
@@ -203,21 +215,13 @@ module Chroma
   end
 
   class StateFrameObserver
+    def initialize(editor)
+      @editor = editor
+    end
+
     def frameChange(from_page, to_page, percent_done)
       #puts "From page #{from_page.to_s} to #{to_page.to_s} (#{percent_done * 100}%)"
-
-      model = to_page.model
-      state_dict = to_page.attribute_dictionary(PAGE_STATE_DICT)
-      if state_dict
-        state_dict.each{ |key, value|
-          component, prop = ComponentProps.key_to_component_prop(key, model)
-          if component
-            ComponentProps.set_prop_value(component, prop, value)
-          else
-            # TODO delete the key?
-          end
-        }
-      end
+      @editor.set_state(to_page)
     end
   end
 

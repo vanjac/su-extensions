@@ -63,15 +63,24 @@ module Chroma
       end
     end
 
-    def self.component_prop_to_key(component, prop)
-      return component.persistent_id.to_s + ":" + prop
+    def self.component_prop_to_key(component, prop, root)
+      if component == root
+        id_str = "root"
+      else
+        id_str = component.persistent_id.to_s
+      end
+      return id_str + ":" + prop
     end
 
-    def self.key_to_component_prop(key, model)
+    def self.key_to_component_prop(key, root)
       id_str, prop = key.split(":")
-      component = model.find_entity_by_persistent_id(id_str.to_i)
-      if !component
-        puts "can't find component " + id_str
+      if id_str == "root"
+        component = root
+      else
+        component = root.model.find_entity_by_persistent_id(id_str.to_i)
+        if !component
+          puts "can't find component " + id_str
+        end
       end
       return component, prop
     end
