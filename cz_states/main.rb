@@ -48,7 +48,7 @@ module Chroma
       puts "animated props:"
       @animated_props.each{|item| puts "  " + item.to_s}
 
-      @pages_observer = StatePagesObserver.new
+      @pages_observer = StatePagesObserver.new(self)
       @component.model.pages.add_observer(@pages_observer)
       @frame_observer_id = Sketchup::Pages.add_frame_change_observer(
         StateFrameObserver.new)
@@ -142,18 +142,40 @@ module Chroma
       end
     end
 
+    # add to existing states
     def add_prop(component, prop)
       @animated_props.add([component, prop])
-      # TODO
+      key = ComponentProps.component_prop_to_key(component, prop)
+      value = ComponentProps.get_prop_value(component, prop)
+      @component.model.pages.each{ |page|
+        page.set_attribute(PAGE_STATE_DICT, key, value)
+      }
     end
 
+    # remove from existing states
     def remove_prop(component, prop)
       @animated_props.delete([component, prop])
-      # TODO
+      key = ComponentProps.component_prop_to_key(component, prop)
+      @component.model.pages.each{ |page|
+        page.delete_attribute(PAGE_STATE_DICT, key)
+      }
+    end
+
+    def new_state(page)
+      @animated_props.each{ |item|
+        component, prop = item
+        key = ComponentProps.component_prop_to_key(component, prop)
+        value = ComponentProps.get_prop_value(component, prop)
+        page.set_attribute(PAGE_STATE_DICT, key, value)
+      }
     end
   end
 
   class StatePagesObserver < Sketchup::PagesObserver
+
+    def initialize(editor)
+      @editor = editor
+    end
 
     def onElementAdded(pages, page)
       # remove all data from the page
@@ -168,25 +190,7 @@ module Chroma
       page.use_style = false
 
       StatesEditor.reset_page_properties(page)
-
-      selection = pages.model.selection
-      if selection.length == 1  # TODO
-        component = selection[0]
-        props = ComponentProps.get_prop_list(component)
-        result = UI.inputbox(props, ["No"] * props.length,
-          ["Yes|No"] * props.length, "Include properties")
-        if !result
-          return
-        end
-        (0...(props.length)).each{ |i|
-          if result[i] == "Yes"
-            prop = props[i]
-            key = ComponentProps.component_prop_to_key(component, prop)
-            value = ComponentProps.get_prop_value(component, prop)
-            page.attribute_dictionary(PAGE_STATE_DICT, true)[key] = value
-          end
-        }
-      end
+      @editor.new_state(page)
     end
   end
 
