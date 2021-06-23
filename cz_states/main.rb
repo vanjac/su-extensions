@@ -5,6 +5,7 @@ Sketchup::load 'cz_states/props'
 module Chroma
 
   PAGE_STATE_DICT = "cz_state"
+  COMPONENT_STATES_DICT = "cz_states"
 
   module StateModelManager
     @@states_editors = {}
@@ -37,6 +38,8 @@ module Chroma
       puts "init editor"
       @component = component
 
+      create_pages
+
       @pages_observer = StatePagesObserver.new
       @component.model.pages.add_observer(@pages_observer)
       @frame_observer_id = Sketchup::Pages.add_frame_change_observer(
@@ -47,6 +50,51 @@ module Chroma
       puts "close editor"
       component.model.pages.remove_observer(@pages_observer)
       Sketchup::Pages.remove_frame_change_observer(@frame_observer_id)
+
+      store_pages
+    end
+
+    def delete_all_pages(pages)
+      if pages.count == 0
+        return
+      end
+      delete_pages = []
+      # can't delete in each{}
+      pages.each { |page| delete_pages.push(page) }
+      delete_pages.each { |page| pages.erase(page) }
+    end
+
+    def create_pages
+      pages = @component.model.pages
+      delete_all_pages(pages)
+      states_dict = @component.attribute_dictionary(COMPONENT_STATES_DICT)
+      if !states_dict
+        return
+      end
+      states_dict.attribute_dictionaries.each { |s_dict|
+        page = pages.add(s_dict.name, 0)
+        page_dict = page.attribute_dictionary(PAGE_STATE_DICT, true)
+        s_dict.each{ |key, value|
+          page_dict[key] = value
+        }
+      }
+    end
+
+    def store_pages
+      @component.attribute_dictionaries.delete(COMPONENT_STATES_DICT)
+      states_dict = @component.attribute_dictionary(COMPONENT_STATES_DICT, true)
+      pages = @component.model.pages
+      pages.each{ |page|
+        page_dict = page.attribute_dictionary(PAGE_STATE_DICT)
+        if !page_dict
+          next
+        end
+        s_dict = states_dict.attribute_dictionary(page.name, true)
+        page_dict.each{ |key, value|
+          s_dict[key] = value
+        }
+      }
+      delete_all_pages(pages)
     end
   end
 
