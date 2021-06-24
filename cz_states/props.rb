@@ -24,7 +24,7 @@ module Chroma
     @@model_observers = {}
 
     def initialize(model)
-      @last_path = model.active_path || []
+      @last_path = active_path(model)
 
       @global_edit_transforms = {model => Geom::Transformation.new}
       @path_instances = {model => model}
@@ -36,15 +36,25 @@ module Chroma
       return @@model_observers[model]
     end
 
+    def active_path(model)
+      return model.active_path || []
+    end
+
+    def close_active(model)
+      model.selection.clear
+      model.close_active
+      onActivePathChanged(model)  # not called automatically :(
+    end
+
     def onActivePathChanged(model)
-      path = model.active_path || []
+      path = active_path(model)
       # TODO these assume the path only changes by one item at a time
       if path.count > @last_path.count
         @global_edit_transforms[path.last] = model.edit_transform
         @path_instances[path.last.definition] = path.last
       elsif path.count < @last_path.count
-        @global_edit_transforms[@last_path.last] = nil
-        @path_instances[@last_path.last.definition] = nil
+        @global_edit_transforms.delete(@last_path.last)
+        @path_instances.delete(@last_path.last.definition)
       end
 
       @last_path = path
@@ -70,6 +80,22 @@ module Chroma
       end
       # component.transformation will be in local coordinates
       return component.transformation
+    end
+
+    def set_local_transform(component, transform)
+      model = component.model
+      if component.parent.is_a?(Sketchup::Model)
+        # close all active contexts
+        (0...(active_path(model).count)).each{ |i|
+          close_active(model)
+        }
+      else
+        # close until component parent is not on path
+        while @path_instances[component.parent]
+          close_active(model)
+        end
+      end
+      component.transformation = transform
     end
   end
 
@@ -125,7 +151,9 @@ module Chroma
 
     def self.set_prop_value(component, prop, value)
       if prop == "Transform"
-        component.transformation = Geom::Transformation.new(value)
+        transform = Geom::Transformation.new(value)
+        PropsModelObserver.get_observer(component.model).
+          set_local_transform(component, transform)
       elsif prop == "Color"
         mat = component.material
         if mat
