@@ -42,7 +42,6 @@ module Chroma
     attr_reader :component
 
     def initialize(component)
-      puts "init editor"
       @component = component
       @animated_props = Set[]  # set of [component, prop]
 
@@ -51,8 +50,6 @@ module Chroma
       end
 
       create_pages
-      puts "animated props:"
-      @animated_props.each{|item| puts "  " + item.to_s}
 
       # definition state may not match instance state
       selected_page = @component.model.pages.selected_page
@@ -69,7 +66,6 @@ module Chroma
     end
 
     def close
-      puts "close editor"
       @@toolbar.hide
       component.model.pages.remove_observer(@pages_observer)
       Sketchup::Pages.remove_frame_change_observer(@frame_observer_id)
