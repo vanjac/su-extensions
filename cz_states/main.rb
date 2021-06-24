@@ -187,6 +187,33 @@ module Chroma
       end
     end
 
+    def edit_animated_properties
+      def_name = ComponentProps.friendly_definition_name(@component)
+      if @animated_props.count == 0
+        UI.messagebox("No animated properties for " + def_name)
+        return
+      end
+      props = @animated_props.to_a  # capture consistent order
+      names = props.map{ |item|
+        component, prop = item
+        next ComponentProps.friendly_name(component, @component) +
+          " : " + prop + " "
+      }
+      defaults = [""] * names.count
+      lists = ["|Remove"] * names.count
+      result = UI.inputbox(names, defaults, lists, def_name +
+        " animated properties")
+      if !result
+        return
+      end
+      (0...(result.count)).each{ |i|
+        if result[i] == "Remove"
+          component, prop = props[i]
+          remove_prop(component, prop)
+        end
+      }
+    end
+
     # add to existing states
     def add_prop(component, prop)
       @animated_props.add([component, prop])
@@ -239,6 +266,18 @@ module Chroma
           MF_GRAYED
         end
       }
+
+      cmd = UI::Command.new('Animated Properties') {
+        editor = StateModelManager.get_editor(Sketchup.active_model)
+        editor.edit_animated_properties
+      }
+      cmd.tooltip = cmd.menu_text
+      cmd.status_bar_text =
+        "List all animated properties, with options to remove."
+      cmd.set_validation_proc(&validation_proc)
+      cmd.large_icon = icon_path("list_large")
+      cmd.small_icon = icon_path("list_small")
+      @@toolbar.add_item(cmd)
 
       cmd = UI::Command.new('Update State') {
         editor = StateModelManager.get_editor(Sketchup.active_model)
