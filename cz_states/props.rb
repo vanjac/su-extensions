@@ -21,52 +21,54 @@ module Chroma
   end
 
   class PropsModelObserver < Sketchup::ModelObserver
+    @@model_observers = {}
+
     def initialize(model)
       @last_path = model.active_path || []
 
-      @@global_edit_transforms = {}
-      @@local_edit_transforms = {}
+      @global_edit_transforms = {model => Geom::Transformation.new}
+      @path_instances = {model => model}
+
+      @@model_observers[model] = self
+    end
+
+    def self.get_observer(model)
+      return @@model_observers[model]
     end
 
     def onActivePathChanged(model)
       path = model.active_path || []
       # TODO these assume the path only changes by one item at a time
       if path.count > @last_path.count
-        @@global_edit_transforms[path.last] = model.edit_transform
-        if path.count <= 1
-          @@local_edit_transforms[path.last] = model.edit_transform
-        else
-          @@local_edit_transforms[path.last] =
-            @@global_edit_transforms[path[-2]].inverse * model.edit_transform
-        end
+        @global_edit_transforms[path.last] = model.edit_transform
+        @path_instances[path.last.definition] = path.last
       elsif path.count < @last_path.count
-        @@global_edit_transforms[@last_path.last] = nil
-        @@local_edit_transforms[@last_path.last] = nil
+        @global_edit_transforms[@last_path.last] = nil
+        @path_instances[@last_path.last.definition] = nil
       end
 
       @last_path = path
     end
 
-    def self.get_local_transform(component)
+    def get_local_transform(component)
       # https://forums.sketchup.com/t/is-adding-entities-in-local-or-global-coordinates/78079/3
       # this is a replacement for local_transformation provided by DC, which
       # is buggy and broken like the rest of DC.
 
-      if @@local_edit_transforms[component]
+      parent_inst_on_path = @path_instances[component.parent]
+      if @global_edit_transforms[component]
         # TODO possible bugs with newly created groups????
         #puts "component on path!"
-        return @@local_edit_transforms[component]
-      elsif component.parent
-        path = component.model.active_path || []
-        path.each{ |path_ent|
-          if path_ent == component.parent ||
-              path_ent.definition == component.parent
-            #puts "parent on path!"
-            return (@@global_edit_transforms[path_ent].inverse *
-              component.transformation)
-          end
-        }
+        # component.transformation will be identity (ignore)
+        return (@global_edit_transforms[parent_inst_on_path].inverse *
+          @global_edit_transforms[component])
+      elsif @global_edit_transforms[parent_inst_on_path]
+        #puts "parent on path!"
+        # component.transformation will be in global coordinates
+        return (@global_edit_transforms[parent_inst_on_path].inverse *
+          component.transformation)
       end
+      # component.transformation will be in local coordinates
       return component.transformation
     end
   end
@@ -100,7 +102,8 @@ module Chroma
 
     def self.get_prop_value(component, prop)
       if prop == "Transform"
-        return PropsModelObserver.get_local_transform(component).to_a
+        return PropsModelObserver.get_observer(component.model).
+          get_local_transform(component).to_a
       elsif prop == "Color"
         mat = component.material
         if !mat
