@@ -61,10 +61,13 @@ module Chroma
       @component.model.pages.add_observer(@pages_observer)
       @frame_observer_id = Sketchup::Pages.add_frame_change_observer(
         StateFrameObserver.new(self))
+
+      @@toolbar.show
     end
 
     def close
       puts "close editor"
+      @@toolbar.hide
       component.model.pages.remove_observer(@pages_observer)
       Sketchup::Pages.remove_frame_change_observer(@frame_observer_id)
 
@@ -225,6 +228,48 @@ module Chroma
         }
       end
     end
+
+    def self.init_toolbar
+      @@toolbar = UI.toolbar("States Editor")
+
+      validation_proc = proc {
+        if StateModelManager.get_editor(Sketchup.active_model)
+          MF_ENABLED
+        else
+          MF_GRAYED
+        end
+      }
+
+      cmd = UI::Command.new('Update State') {
+        editor = StateModelManager.get_editor(Sketchup.active_model)
+        editor.update_state(Sketchup.active_model.pages.selected_page)
+      }
+      cmd.tooltip = cmd.menu_text
+      cmd.status_bar_text =
+        "Refresh selected state with the current values of animated properties"
+      cmd.set_validation_proc(&validation_proc)
+      cmd.large_icon = icon_path("update_large")
+      cmd.small_icon = icon_path("update_small")
+      @@toolbar.add_item(cmd)
+
+      cmd = UI::Command.new('Close Editor') {
+        StateModelManager.close_editor(Sketchup.active_model)
+      }
+      cmd.tooltip = cmd.menu_text
+      cmd.status_bar_text = "Save component states and exit the editor."
+      cmd.set_validation_proc(&validation_proc)
+      cmd.large_icon = icon_path("close_large")
+      cmd.small_icon = icon_path("close_small")
+      @@toolbar.add_item(cmd)
+
+      UI.start_timer(0.1, false) {
+        @@toolbar.hide
+      }
+    end
+
+    def self.icon_path(name)
+      return Sketchup.find_support_file(name + ".png", "Plugins/cz_states/")
+    end
   end
 
   class StatePagesObserver < Sketchup::PagesObserver
@@ -261,14 +306,8 @@ module Chroma
   end
 
   unless file_loaded?(__FILE__)
-    # TODO improve interface, error checking...
-    UI.menu.add_item('Close Editor') {
-      StateModelManager.close_editor(Sketchup.active_model)
-    }
-    UI.menu.add_item('Update State') {
-      editor = StateModelManager.get_editor(Sketchup.active_model)
-      editor.update_state(Sketchup.active_model.pages.selected_page)
-    }
+    StatesEditor.init_toolbar
+
     # I can't find a way to remove a handler, so we can only add it at the start
     UI.add_context_menu_handler { |menu|
       editor = StateModelManager.get_editor(Sketchup.active_model)
