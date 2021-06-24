@@ -55,7 +55,10 @@ module Chroma
       @animated_props.each{|item| puts "  " + item.to_s}
 
       # definition state may not match instance state
-      set_state(@component.model.pages.selected_page)
+      selected_page = @component.model.pages.selected_page
+      if selected_page
+        set_state(selected_page)
+      end
 
       @pages_observer = StatePagesObserver.new(self)
       @component.model.pages.add_observer(@pages_observer)
@@ -99,26 +102,29 @@ module Chroma
     end
 
     def copy_states_dict_to_pages(states_dict, pages)
-      if !states_dict || !states_dict.attribute_dictionaries
+      if !states_dict
         return
       end
 
-      states_dict.attribute_dictionaries.each { |s_dict|
-        page = pages[s_dict.name]
-        if !page
-          page = pages.add(s_dict.name, 0)
-          reset_page_properties(page)
-        end
-        page_dict = page.attribute_dictionary(PAGE_STATE_DICT, true)
-        s_dict.each{ |key, value|
-          component, prop = ComponentProps.key_to_component_prop(key, @component)
-          if !component
-            next
+      if states_dict.attribute_dictionaries
+        states_dict.attribute_dictionaries.each { |s_dict|
+          page = pages[s_dict.name]
+          if !page
+            page = pages.add(s_dict.name, 0)
+            reset_page_properties(page)
           end
-          @animated_props.add([component, prop])
-          page_dict[key] = value
+          page_dict = page.attribute_dictionary(PAGE_STATE_DICT, true)
+          s_dict.each{ |key, value|
+            component, prop = ComponentProps.key_to_component_prop(key,
+              @component)
+            if !component
+              next
+            end
+            @animated_props.add([component, prop])
+            page_dict[key] = value
+          }
         }
-      }
+      end
 
       current = states_dict[CURRENT_STATE_ATTR]
       if current
@@ -157,8 +163,10 @@ module Chroma
         }
       }
 
-      inst_states_dict[CURRENT_STATE_ATTR] = pages.selected_page.name
-      def_states_dict[CURRENT_STATE_ATTR] = pages.selected_page.name
+      if pages.selected_page
+        inst_states_dict[CURRENT_STATE_ATTR] = pages.selected_page.name
+        def_states_dict[CURRENT_STATE_ATTR] = pages.selected_page.name
+      end
       delete_all_pages(pages)
     end
 
@@ -246,7 +254,8 @@ module Chroma
       state_dict = page.attribute_dictionary(PAGE_STATE_DICT)
       if state_dict
         state_dict.each{ |key, value|
-          component, prop = ComponentProps.key_to_component_prop(key, @component)
+          component, prop = ComponentProps.key_to_component_prop(key,
+            @component)
           if component
             ComponentProps.set_prop_value(component, prop, value)
           else
@@ -281,7 +290,10 @@ module Chroma
 
       cmd = UI::Command.new('Update State') {
         editor = StateModelManager.get_editor(Sketchup.active_model)
-        editor.update_state(Sketchup.active_model.pages.selected_page)
+        selected_page = Sketchup.active_model.pages.selected_page
+        if selected_page
+          editor.update_state(Sketchup.active_model.pages.selected_page)
+        end
       }
       cmd.tooltip = cmd.menu_text
       cmd.status_bar_text =
