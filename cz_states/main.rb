@@ -230,7 +230,7 @@ module Chroma
     end
 
     def self.init_toolbar
-      @@toolbar = UI.toolbar("States Editor")
+      @@toolbar = UI.toolbar("Edit States")
 
       validation_proc = proc {
         if StateModelManager.get_editor(Sketchup.active_model)
