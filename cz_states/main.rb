@@ -374,6 +374,9 @@ module Chroma
         end
       end
     }
+
+    Sketchup.add_observer(PropsAppObserver.new)
+
     file_loaded(__FILE__)
   end
 

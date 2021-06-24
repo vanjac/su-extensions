@@ -1,5 +1,77 @@
 module Chroma
 
+  class PropsAppObserver < Sketchup::AppObserver
+    def initialize
+      if Sketchup.active_model
+        attach_observers(Sketchup.active_model)
+      end
+    end
+
+    def onNewModel(model)
+      attach_observers(model)
+    end
+
+    def onOpenModel(model)
+      attach_observers(model)
+    end
+
+    def attach_observers(model)
+      model.add_observer(PropsModelObserver.new(model))
+    end
+  end
+
+  class PropsModelObserver < Sketchup::ModelObserver
+    def initialize(model)
+      @last_path = model.active_path || []
+
+      @@global_edit_transforms = {}
+      @@local_edit_transforms = {}
+    end
+
+    def onActivePathChanged(model)
+      path = model.active_path || []
+      # TODO these assume the path only changes by one item at a time
+      if path.count > @last_path.count
+        @@global_edit_transforms[path.last] = model.edit_transform
+        if path.count <= 1
+          @@local_edit_transforms[path.last] = model.edit_transform
+        else
+          @@local_edit_transforms[path.last] =
+            @@global_edit_transforms[path[-2]].inverse * model.edit_transform
+        end
+      elsif path.count < @last_path.count
+        @@global_edit_transforms[@last_path.last] = nil
+        @@local_edit_transforms[@last_path.last] = nil
+      end
+
+      @last_path = path
+    end
+
+    def self.get_local_transform(component)
+      # https://forums.sketchup.com/t/is-adding-entities-in-local-or-global-coordinates/78079/3
+      # this is a replacement for local_transformation provided by DC, which
+      # is buggy and broken like the rest of DC.
+
+      if @@local_edit_transforms[component]
+        # TODO possible bugs with newly created groups????
+        #puts "component on path!"
+        return @@local_edit_transforms[component]
+      elsif component.parent
+        path = component.model.active_path || []
+        path.each{ |path_ent|
+          if path_ent == component.parent ||
+              path_ent.definition == component.parent
+            #puts "parent on path!"
+            return (@@global_edit_transforms[path_ent].inverse *
+              component.transformation)
+          end
+        }
+      end
+      return component.transformation
+    end
+  end
+
+
   module ComponentProps
     DEFAULT_PROPS = ["Transform", "Color", "Hidden"]
     PROPS_DICT = "cz_props"
@@ -28,25 +100,7 @@ module Chroma
 
     def self.get_prop_value(component, prop)
       if prop == "Transform"
-        # https://forums.sketchup.com/t/is-adding-entities-in-local-or-global-coordinates/78079/3
-        # this should be the *local* transform relative to component parent.
-        # this is a replacement for local_transformation provided by DC, which
-        # is buggy and broken like the rest of DC.
-
-        if $local_edit_transforms[component.to_s]
-          # TODO bugs with newly created groups????
-          return $local_edit_transforms[component.to_s].to_a
-        elsif component.parent
-          path = component.model.active_path || []
-          path.each{ |path_ent|
-            if path_ent == component.parent ||
-                path_ent.definition == component.parent
-              return ($global_edit_transforms[path_ent.to_s].inverse *
-                component.transformation).to_a
-            end
-          }
-        end
-        return component.transformation.to_a
+        return PropsModelObserver.get_local_transform(component).to_a
       elsif prop == "Color"
         mat = component.material
         if !mat
