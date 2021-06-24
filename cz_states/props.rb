@@ -28,6 +28,24 @@ module Chroma
 
     def self.get_prop_value(component, prop)
       if prop == "Transform"
+        # https://forums.sketchup.com/t/is-adding-entities-in-local-or-global-coordinates/78079/3
+        # this should be the *local* transform relative to component parent.
+        # this is a replacement for local_transformation provided by DC, which
+        # is buggy and broken like the rest of DC.
+
+        if $local_edit_transforms[component.to_s]
+          # TODO bugs with newly created groups????
+          return $local_edit_transforms[component.to_s].to_a
+        elsif component.parent
+          path = component.model.active_path || []
+          path.each{ |path_ent|
+            if path_ent == component.parent ||
+                path_ent.definition == component.parent
+              return ($global_edit_transforms[path_ent.to_s].inverse *
+                component.transformation).to_a
+            end
+          }
+        end
         return component.transformation.to_a
       elsif prop == "Color"
         mat = component.material
