@@ -169,6 +169,9 @@ module Chroma
     def context_menu(menu, model)
       if model.selection.length == 1  # TODO
         c = model.selection[0]
+        if !component_is_valid(c)
+          return
+        end
         props = ComponentProps.get_prop_list(c)
         if props.count == 0
           return
@@ -216,6 +219,30 @@ module Chroma
           remove_prop(component, prop)
         end
       }
+    end
+
+    def component_is_valid(c)
+      if !(c && c.valid? &&
+          (c.is_a?(Sketchup::ComponentInstance) || c.is_a?(Sketchup::Group)))
+        return false
+      end
+      if c == @component
+        return true
+      end
+      # make sure c is a child of the root, or nested in unique groups (but not
+      # components, since those could exist elsewhere)
+      loop do
+        parent = c.parent
+        if parent == @component.definition
+          return true
+        elsif parent.is_a?(Sketchup::ComponentDefinition) && parent.group? &&
+            parent.count_instances == 1
+          c = parent.instances[0]
+        else
+          return false
+        end
+      end
+      return true
     end
 
     # add to existing states
