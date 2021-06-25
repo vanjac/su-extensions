@@ -43,7 +43,7 @@ module Chroma
 
     def initialize(component)
       @component = component
-      @animated_props = Set[]  # set of [component, prop]
+      @animated_props = Set[]  # set of ComponentProps
 
       if @component.is_a?(Sketchup::Group)
         @component.make_unique
@@ -111,12 +111,7 @@ module Chroma
           end
           page_dict = page.attribute_dictionary(PAGE_STATE_DICT, true)
           s_dict.each{ |key, value|
-            component, prop = ComponentProps.key_to_component_prop(key,
-              @component)
-            if !component
-              next
-            end
-            @animated_props.add([component, prop])
+            @animated_props.add(ComponentProp.from_key(key, @component))
             page_dict[key] = value
           }
         }
@@ -151,7 +146,7 @@ module Chroma
           next
         end
         page_dict.each{ |key, value|
-          if ComponentProps.is_instance_prop(key)
+          if ComponentProp.is_instance_prop(key)
             inst_states_dict.set_attribute(page.name, key, value)
           else
             def_states_dict.set_attribute(page.name, key, value)
@@ -172,19 +167,19 @@ module Chroma
         if !component_is_valid(c)
           return
         end
-        props = ComponentProps.get_prop_list(c)
+        props = ComponentProp.get_prop_list(c, @component)
         if props.count == 0
           return
         end
         menu.add_separator
         submenu = menu.add_submenu("Animated Properties")
         props.each{ |prop|
-          selected = @animated_props.include?([c, prop])
-          item = submenu.add_item(prop) {
+          selected = @animated_props.include?(prop)
+          item = submenu.add_item(prop.name) {
             if !selected
-              add_prop(c, prop)
+              add_prop(prop)
             else
-              remove_prop(c, prop)
+              remove_prop(prop)
             end
           }
           submenu.set_validation_proc(item) {
@@ -195,17 +190,15 @@ module Chroma
     end
 
     def edit_animated_properties
-      def_name = ComponentProps.friendly_definition_name(@component)
+      check_animated_props
+
+      def_name = ComponentProp.friendly_definition_name(@component)
       if @animated_props.count == 0
         UI.messagebox("No animated properties for " + def_name)
         return
       end
       props = @animated_props.to_a  # capture consistent order
-      names = props.map{ |item|
-        component, prop = item
-        next ComponentProps.friendly_name(component, @component) +
-          " : " + prop + " "
-      }
+      names = props.map{ |prop| prop.friendly_name(@component) + " " }
       defaults = [""] * names.count
       lists = ["|Remove"] * names.count
       result = UI.inputbox(names, defaults, lists, def_name +
@@ -215,8 +208,7 @@ module Chroma
       end
       (0...(result.count)).each{ |i|
         if result[i] == "Remove"
-          component, prop = props[i]
-          remove_prop(component, prop)
+          remove_prop(props[i])
         end
       }
     end
@@ -245,45 +237,47 @@ module Chroma
       return true
     end
 
+    def check_animated_props
+      invalid = @animated_props.select{ |prop|
+        !component_is_valid(prop.component)
+      }
+      invalid.each{ |prop|
+        puts "deleting prop " + prop.key
+        remove_prop(prop)
+      }
+    end
+
     # add to existing states
-    def add_prop(component, prop)
-      @animated_props.add([component, prop])
-      key = ComponentProps.component_prop_to_key(component, prop, @component)
-      value = ComponentProps.get_prop_value(component, prop)
+    def add_prop(prop)
+      @animated_props.add(prop)
+      value = prop.get_value
       @component.model.pages.each{ |page|
-        page.set_attribute(PAGE_STATE_DICT, key, value)
+        page.set_attribute(PAGE_STATE_DICT, prop.key, value)
       }
     end
 
     # remove from existing states
-    def remove_prop(component, prop)
-      @animated_props.delete([component, prop])
-      key = ComponentProps.component_prop_to_key(component, prop, @component)
+    def remove_prop(prop)
+      @animated_props.delete(prop)
       @component.model.pages.each{ |page|
-        page.delete_attribute(PAGE_STATE_DICT, key)
+        page.delete_attribute(PAGE_STATE_DICT, prop.key)
       }
     end
 
     def update_state(page)
-      @animated_props.each{ |item|
-        component, prop = item
-        key = ComponentProps.component_prop_to_key(component, prop, @component)
-        value = ComponentProps.get_prop_value(component, prop)
-        page.set_attribute(PAGE_STATE_DICT, key, value)
+      check_animated_props
+      @animated_props.each{ |prop|
+        page.set_attribute(PAGE_STATE_DICT, prop.key, prop.get_value)
       }
     end
 
     def set_state(page)
+      check_animated_props
       state_dict = page.attribute_dictionary(PAGE_STATE_DICT)
       if state_dict
         state_dict.each{ |key, value|
-          component, prop = ComponentProps.key_to_component_prop(key,
-            @component)
-          if component
-            ComponentProps.set_prop_value(component, prop, value)
-          else
-            # TODO delete the key?
-          end
+          prop = ComponentProp.from_key(key, @component)
+          prop.set_value(value)
         }
       end
     end
