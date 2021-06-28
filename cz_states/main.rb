@@ -2,11 +2,9 @@ require 'sketchup.rb'
 require 'set'
 
 Sketchup::load 'cz_states/props'
+Sketchup::load 'cz_states/state'
 
 module Chroma
-
-  COMPONENT_STATES_DICT = "cz_states"
-  CURRENT_STATE_ATTR = "current"
 
   module StateModelManager
     @@states_editors = {}
@@ -52,9 +50,11 @@ module Chroma
       create_pages
 
       # definition state may not match instance state
-      selected_page = @component.model.pages.selected_page
-      if selected_page
-        set_state(selected_page)
+      current_state = ComponentState.get_current(@component)
+      if current_state
+        current_page = @component.model.pages[current_state]
+        @component.model.pages.selected_page = current_page
+        set_state(current_page)
       end
 
       @pages_observer = StatePagesObserver.new(self)
@@ -116,11 +116,6 @@ module Chroma
           }
         }
       end
-
-      current = states_dict[CURRENT_STATE_ATTR]
-      if current
-        pages.selected_page = pages[current]
-      end
     end
 
     def store_pages
@@ -155,23 +150,22 @@ module Chroma
       }
 
       if pages.selected_page
-        inst_states_dict[CURRENT_STATE_ATTR] = pages.selected_page.name
-        def_states_dict[CURRENT_STATE_ATTR] = pages.selected_page.name
+        ComponentState.set_current(@component, pages.selected_page.name)
       end
       delete_all_pages(pages)
     end
 
-    def context_menu(menu, model)
+    def context_menu(model, menu, separator_lambda)
       if model.selection.length == 1  # TODO
         c = model.selection[0]
-        if !component_is_valid(c)
+        if !ComponentState.component_is_valid(c, @component)
           return
         end
         props = ComponentProp.get_prop_list(c, @component)
         if props.count == 0
           return
         end
-        menu.add_separator
+        separator_lambda.call
         submenu = menu.add_submenu("Animated Properties")
         props.each{ |prop|
           selected = @animated_props.include?(prop)
@@ -213,33 +207,9 @@ module Chroma
       }
     end
 
-    def component_is_valid(c)
-      if !(c && c.valid? &&
-          (c.is_a?(Sketchup::ComponentInstance) || c.is_a?(Sketchup::Group)))
-        return false
-      end
-      if c == @component
-        return true
-      end
-      # make sure c is a child of the root, or nested in unique groups (but not
-      # components, since those could exist elsewhere)
-      loop do
-        parent = c.parent
-        if parent == @component.definition
-          return true
-        elsif parent.is_a?(Sketchup::ComponentDefinition) && parent.group? &&
-            parent.count_instances == 1
-          c = parent.instances[0]
-        else
-          return false
-        end
-      end
-      return true
-    end
-
     def check_animated_props
       invalid = @animated_props.select{ |prop|
-        !component_is_valid(prop.component)
+        !ComponentState.component_is_valid(prop.component, @component)
       }
       invalid.each{ |prop|
         puts "deleting prop " + prop.key
@@ -275,10 +245,7 @@ module Chroma
       check_animated_props
       state_dict = page.attribute_dictionary(PAGE_STATE_DICT)
       if state_dict
-        state_dict.each{ |key, value|
-          prop = ComponentProp.from_key(key, @component)
-          prop.set_value(value)
-        }
+        ComponentState.apply_state_dict(@component, state_dict)
       end
     end
 
@@ -373,25 +340,56 @@ module Chroma
     end
   end
 
+  def self.state_menu(component, menu, separator_lambda)
+    states = ComponentState.get_state_list(component)
+    if states.count == 0
+      return
+    end
+    current = ComponentState.get_current(component)
+    separator_lambda.call
+    submenu = menu.add_submenu("States")
+    states.each { |state|
+      selected = state == current
+      item = submenu.add_item(state) {
+        # even if already selected
+        # TODO
+      }
+      submenu.set_validation_proc(item) {
+        next selected ? MF_CHECKED : MF_UNCHECKED
+      }
+    }
+  end
+
   unless file_loaded?(__FILE__)
     StatesEditor.init_toolbar
 
     # I can't find a way to remove a handler, so we can only add it at the start
     UI.add_context_menu_handler { |menu|
+      separator = false
+      separator_lambda = lambda {
+        if !separator
+          menu.add_separator
+          separator = true
+        end
+      }
+
+      model = Sketchup.active_model
+      selected = model.selection.count == 1 ? model.selection[0] : nil
       editor = StateModelManager.get_editor(Sketchup.active_model)
       if editor
-        editor.context_menu(menu, Sketchup.active_model)
-      else
-        model = Sketchup.active_model
-        if model.selection.count == 1
-          selected = model.selection[0]
-          if selected.is_a?(Sketchup::ComponentInstance) ||
-              selected.is_a?(Sketchup::Group)
-            menu.add_separator
-            menu.add_item('Edit States') {
-              StateModelManager.edit_states(model, selected)
-            }
-          end
+        editor.context_menu(Sketchup.active_model, menu, separator_lambda)
+      end
+
+      if selected && (selected.is_a?(Sketchup::ComponentInstance) ||
+          selected.is_a?(Sketchup::Group))
+        if !editor || editor.component != selected
+          state_menu(selected, menu, separator_lambda)
+        end
+        if !editor
+          separator_lambda.call
+          menu.add_item('Edit States') {
+            StateModelManager.edit_states(model, selected)
+          }
         end
       end
     }
