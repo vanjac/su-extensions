@@ -101,7 +101,6 @@ module Chroma
 
   # reference to a component property
   class ComponentProp
-    DEFAULT_PROP_NAMES = ["Transform", "Color", "Hidden"]
     PROPS_DICT = "cz_props"
 
     attr_reader :component
@@ -152,13 +151,16 @@ module Chroma
           !component.is_a?(Sketchup::Group)
         return []
       end
-      props = DEFAULT_PROP_NAMES.map{ |name|
+      # applies to every component
+      props = ["Transform", "Color", "Hidden"].map{ |name|
         ComponentProp.from_name(component, name, root)
       }
+      # TODO add a has_states? method?
+      if component != root && ! ComponentState.get_state_list(component).empty?
+        props.push(ComponentProp.from_name(component, "State", root))
+      end
       dict = component.attribute_dictionary(PROPS_DICT)
-      if !dict
-        return props
-      else
+      if dict
         dict.each{ |key, value|
           if value.is_a?(Float) || value.is_a?(Length) ||
               value == true || value == false ||
@@ -167,8 +169,8 @@ module Chroma
             props.push(ComponentProp.from_name(component, key, root))
           end
         }
-        return props
       end
+      return props
     end
 
     def get_value
@@ -184,6 +186,8 @@ module Chroma
         end
       elsif @name == "Hidden"
         return @component.hidden?
+      elsif @name == "State"
+        return ComponentState.get_current(@component) || ""
       else
         dict = @component.attribute_dictionary(PROPS_DICT)
         if !dict
@@ -206,6 +210,10 @@ module Chroma
         end
       elsif @name == "Hidden"
         @component.hidden = value
+      elsif @name == "State"
+        if value != ""
+          ComponentState.set_state_in_place(@component, value)
+        end
       else
         @component.attribute_dictionary(PROPS_DICT, true)[@name] = value
       end
