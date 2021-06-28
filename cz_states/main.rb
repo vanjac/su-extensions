@@ -89,21 +89,16 @@ module Chroma
     def create_pages
       pages = @component.model.pages
       delete_all_pages(pages)
-      inst_states_dict = @component.attribute_dictionary(COMPONENT_STATES_DICT)
-      def_states_dict = @component.definition.attribute_dictionary(
-        COMPONENT_STATES_DICT)
+      def_state_dicts, inst_state_dicts =
+        ComponentState.def_inst_state_collections(@component)
 
-      copy_states_dict_to_pages(def_states_dict, pages)
-      copy_states_dict_to_pages(inst_states_dict, pages)  # overrides definition
+      copy_state_dicts_to_pages(def_state_dicts, pages)
+      copy_state_dicts_to_pages(inst_state_dicts, pages)  # overrides definition
     end
 
-    def copy_states_dict_to_pages(states_dict, pages)
-      if !states_dict
-        return
-      end
-
-      if states_dict.attribute_dictionaries
-        states_dict.attribute_dictionaries.each { |s_dict|
+    def copy_state_dicts_to_pages(state_dicts, pages)
+      if state_dicts
+        state_dicts.each { |s_dict|
           page = pages[s_dict.name]
           if !page
             page = pages.add(s_dict.name, 0)
@@ -352,7 +347,7 @@ module Chroma
       selected = state == current
       item = submenu.add_item(state) {
         # even if already selected
-        # TODO
+        ComponentState.set_state_in_place(component, state)
       }
       submenu.set_validation_proc(item) {
         next selected ? MF_CHECKED : MF_UNCHECKED

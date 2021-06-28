@@ -4,19 +4,25 @@ module Chroma
   module ComponentState
     CURRENT_STATE_ATTR = "current"
 
+    # return definition, instance AttributeDictionaries
+    # either could be nil -- will not create if they don't exist!
+    def self.def_inst_state_collections(component)
+      def_dict = component.definition.attribute_dictionary(
+        COMPONENT_STATES_DICT)
+      inst_dict = component.attribute_dictionary(COMPONENT_STATES_DICT)
+      return (def_dict ? def_dict.attribute_dictionaries : nil),
+        (inst_dict ? inst_dict.attribute_dictionaries : nil)
+    end
+
     def self.get_state_list(component)
       if !component.is_a?(Sketchup::ComponentInstance) &&
           !component.is_a?(Sketchup::Group)
         return []
       end
-      def_states_dict = component.definition.attribute_dictionary(
-        COMPONENT_STATES_DICT)
-      inst_states_dict = component.attribute_dictionary(COMPONENT_STATES_DICT)
-      
-      def_keys = (def_states_dict && def_states_dict.attribute_dictionaries)?
-        def_states_dict.attribute_dictionaries.map{ |d| d.name } : []
-      inst_keys = (inst_states_dict && inst_states_dict.attribute_dictionaries)?
-        inst_states_dict.attribute_dictionaries.map{ |d| d.name } : []
+      def_state_dicts, inst_state_dicts = def_inst_state_collections(component)
+
+      def_keys = def_state_dicts ? def_state_dicts.map{ |d| d.name } : []
+      inst_keys = inst_state_dicts ? inst_state_dicts.map{ |d| d.name } : []
       return def_keys | inst_keys
     end
 
@@ -35,6 +41,19 @@ module Chroma
       component.set_attribute(COMPONENT_STATES_DICT, CURRENT_STATE_ATTR, state)
       component.definition.set_attribute(
         COMPONENT_STATES_DICT, CURRENT_STATE_ATTR, state)
+    end
+
+    def self.set_state_in_place(component, state)
+      def_state_dicts, inst_state_dicts = def_inst_state_collections(component)
+      def_dict = def_state_dicts ? def_state_dicts[state] : nil
+      if def_dict
+        apply_state_dict(component, def_dict)
+      end
+      inst_dict = inst_state_dicts ? inst_state_dicts[state] : nil
+      if inst_dict
+        apply_state_dict(component, inst_dict)
+      end
+      set_current(component, state)
     end
 
     def self.apply_state_dict(component, dict)
