@@ -1,8 +1,8 @@
-A handful of useful extensions for SketchUp. Tested with SketchUp Make 2017 on Windows.
+A handful of useful extensions for SketchUp 2017+.
 
 - Hide Back Faces (back-face culling)
-- Fly Tool
-- others... (WIP)
+- Fly Tool (currently Windows only)
+- State Machines
 
 `install.ps1` can be used to install all plugins for SketchUp 2017 (you will need to restart SketchUp). You can modify the script if you have a different version.
 
