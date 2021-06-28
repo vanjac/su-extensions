@@ -157,7 +157,7 @@ module Chroma
           return
         end
         props = ComponentProp.get_prop_list(c, @component)
-        if props.count == 0
+        if props.empty?
           return
         end
         separator_lambda.call
@@ -182,7 +182,7 @@ module Chroma
       check_animated_props
 
       def_name = ComponentProp.friendly_definition_name(@component)
-      if @animated_props.count == 0
+      if @animated_props.empty?
         UI.messagebox("No animated properties for " + def_name)
         return
       end
@@ -337,7 +337,7 @@ module Chroma
 
   def self.state_menu(component, menu, separator_lambda)
     states = ComponentState.get_state_list(component)
-    if states.count == 0
+    if states.empty?
       return
     end
     current = ComponentState.get_current(component)
