@@ -38,9 +38,11 @@ module Chroma
     PAGE_STATE_DICT = "cz_state"
 
     attr_reader :component
+    attr_reader :model
 
     def initialize(component)
       @component = component
+      @model = @component.model  # in case component gets deleted
       @animated_props = Set[]  # set of ComponentProps
 
       if @component.is_a?(Sketchup::Group)
@@ -52,25 +54,30 @@ module Chroma
       # definition state may not match instance state
       current_state = ComponentState.get_current(@component)
       if current_state
-        current_page = @component.model.pages[current_state]
-        @component.model.pages.selected_page = current_page
+        current_page = @model.pages[current_state]
+        @model.pages.selected_page = current_page
         set_state(current_page)
       end
 
       @pages_observer = StatePagesObserver.new(self)
-      @component.model.pages.add_observer(@pages_observer)
+      @model.pages.add_observer(@pages_observer)
       @frame_observer_id = Sketchup::Pages.add_frame_change_observer(
         StateFrameObserver.new(self))
+      @entity_observer = StateEntityObserver.new(self)
+      @component.add_observer(@entity_observer)
 
       @@toolbar.show
     end
 
     def close
       @@toolbar.hide
-      component.model.pages.remove_observer(@pages_observer)
+      @model.pages.remove_observer(@pages_observer)
       Sketchup::Pages.remove_frame_change_observer(@frame_observer_id)
-
-      store_pages
+      if @component.valid?
+        @component.remove_observer(@entity_observer)
+        store_pages
+      end
+      delete_all_pages(@model.pages)
     end
 
     # not including "use" flags
@@ -87,7 +94,7 @@ module Chroma
     end
 
     def create_pages
-      pages = @component.model.pages
+      pages = @model.pages
       delete_all_pages(pages)
       def_state_dicts, inst_state_dicts =
         ComponentState.def_inst_state_collections(@component)
@@ -128,7 +135,7 @@ module Chroma
       def_states_dict = definition.attribute_dictionary(
         COMPONENT_STATES_DICT, true)
 
-      pages = @component.model.pages
+      pages = @model.pages
 
       pages.each{ |page|
         page_dict = page.attribute_dictionary(PAGE_STATE_DICT)
@@ -147,7 +154,6 @@ module Chroma
       if pages.selected_page
         ComponentState.set_current(@component, pages.selected_page.name)
       end
-      delete_all_pages(pages)
     end
 
     def context_menu(model, menu, separator_lambda)
@@ -216,7 +222,7 @@ module Chroma
     def add_prop(prop)
       @animated_props.add(prop)
       value = prop.get_value
-      @component.model.pages.each{ |page|
+      @model.pages.each{ |page|
         page.set_attribute(PAGE_STATE_DICT, prop.key, value)
       }
     end
@@ -224,7 +230,7 @@ module Chroma
     # remove from existing states
     def remove_prop(prop)
       @animated_props.delete(prop)
-      @component.model.pages.each{ |page|
+      @model.pages.each{ |page|
         page.delete_attribute(PAGE_STATE_DICT, prop.key)
       }
     end
@@ -300,7 +306,7 @@ module Chroma
     def self.icon_path(name)
       return Sketchup.find_support_file(name + ".png", "Plugins/cz_states/")
     end
-  end
+  end  # StatesEditor
 
   class StatePagesObserver < Sketchup::PagesObserver
     def initialize(editor)
@@ -332,6 +338,16 @@ module Chroma
     def frameChange(from_page, to_page, percent_done)
       #puts "From page #{from_page.to_s} to #{to_page.to_s} (#{percent_done * 100}%)"
       @editor.set_state(to_page)
+    end
+  end
+
+  class StateEntityObserver < Sketchup::EntityObserver
+    def initialize(editor)
+      @editor = editor
+    end
+
+    def onEraseEntity(entity)
+      StateModelManager.close_editor(@editor.model)
     end
   end
 
