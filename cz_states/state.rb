@@ -20,10 +20,7 @@ module Chroma
         return []
       end
       def_state_dicts, inst_state_dicts = def_inst_state_collections(component)
-
-      def_keys = def_state_dicts ? def_state_dicts.map{ |d| d.name } : []
-      inst_keys = inst_state_dicts ? inst_state_dicts.map{ |d| d.name } : []
-      return def_keys | inst_keys
+      return def_state_dicts ? def_state_dicts.map{ |d| d.name } : []
     end
 
     def self.get_current(component)
