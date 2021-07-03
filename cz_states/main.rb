@@ -356,6 +356,52 @@ module Chroma
     end
   end
 
+
+  class StateModelObserver < Sketchup::ModelObserver
+    def initialize
+      @component = nil
+    end
+
+    def onPreSaveModel(model)
+      if !@component
+        editor = StateModelManager.get_editor(model)
+        if editor
+          @component = editor.component
+          StateModelManager.close_editor(model)
+        end
+      end
+    end
+
+    def onPostSaveModel(model)
+      if @component
+        StateModelManager.edit_states(model, @component)
+        @component = nil
+      end
+    end
+  end
+
+  class StateAppObserver < Sketchup::AppObserver
+    def initialize
+      if Sketchup.active_model
+        attach_observers(Sketchup.active_model)
+      end
+    end
+
+    def onNewModel(model)
+      attach_observers(model)
+    end
+
+    def onOpenModel(model)
+      attach_observers(model)
+    end
+
+    def attach_observers(model)
+      model.add_observer(StateModelObserver.new)
+      model.add_observer(PropsModelObserver.new(model))
+    end
+  end
+
+
   def self.state_menu(component, menu, separator_lambda)
     states = ComponentState.get_state_list(component)
     if states.empty?
@@ -410,7 +456,7 @@ module Chroma
       end
     }
 
-    Sketchup.add_observer(PropsAppObserver.new)
+    Sketchup.add_observer(StateAppObserver.new)
 
     file_loaded(__FILE__)
   end

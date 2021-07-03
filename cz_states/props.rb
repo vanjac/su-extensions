@@ -1,25 +1,5 @@
 module Chroma
 
-  class PropsAppObserver < Sketchup::AppObserver
-    def initialize
-      if Sketchup.active_model
-        attach_observers(Sketchup.active_model)
-      end
-    end
-
-    def onNewModel(model)
-      attach_observers(model)
-    end
-
-    def onOpenModel(model)
-      attach_observers(model)
-    end
-
-    def attach_observers(model)
-      model.add_observer(PropsModelObserver.new(model))
-    end
-  end
-
   class PropsModelObserver < Sketchup::ModelObserver
     @@model_observers = {}
 
