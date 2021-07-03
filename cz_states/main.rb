@@ -32,6 +32,12 @@ module Chroma
         editor.close
       end
     end
+
+    def self.forget_editor(model)
+      if @@states_editors.delete(model)
+        StatesEditor.hide_toolbar
+      end
+    end
   end
 
   class StatesEditor
@@ -310,6 +316,10 @@ module Chroma
       }
     end
 
+    def self.hide_toolbar
+      @@toolbar.hide
+    end
+
     def self.icon_path(name)
       return Sketchup.find_support_file(name + ".png", "Plugins/cz_states/")
     end
@@ -400,6 +410,9 @@ module Chroma
     def attach_observers(model)
       model.add_observer(StateModelObserver.new)
       model.add_observer(PropsModelObserver.new(model))
+      # model objects are reused on Windows for new models, but observers are
+      # automatically removed.
+      StateModelManager.forget_editor(model)
     end
   end
 
