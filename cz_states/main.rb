@@ -51,12 +51,9 @@ module Chroma
 
       create_pages
 
-      # definition state may not match instance state
-      current_state = ComponentState.get_current(@component)
-      if current_state
-        current_page = @model.pages[current_state]
-        @model.pages.selected_page = current_page
-        set_state(current_page)
+      if @model.pages.selected_page
+        # definition state may not match instance state
+        set_state(@model.pages.selected_page)
       end
 
       @pages_observer = StatePagesObserver.new(self)
@@ -76,8 +73,9 @@ module Chroma
       if @component.valid?
         @component.remove_observer(@entity_observer)
         store_pages
+      else
+        delete_all_pages
       end
-      delete_all_pages(@model.pages)
     end
 
     # not including "use" flags
@@ -86,21 +84,27 @@ module Chroma
       page.transition_time = 0
     end
 
-    def delete_all_pages(pages)
+    def delete_all_pages
       # can't delete in each{}, so we do this instead
+      pages = @model.pages
       (pages.count - 1).downto(0) { |i|
         pages.erase(pages[i])
       }
     end
 
     def create_pages
-      pages = @model.pages
-      delete_all_pages(pages)
+      delete_all_pages
       def_state_dicts, inst_state_dicts =
         ComponentState.def_inst_state_collections(@component)
 
-      copy_state_dicts_to_pages(def_state_dicts, pages)
-      copy_state_dicts_to_pages(inst_state_dicts, pages)  # overrides definition
+      copy_state_dicts_to_pages(def_state_dicts, @model.pages)
+      # overrides definition
+      copy_state_dicts_to_pages(inst_state_dicts, @model.pages)
+
+      current_state = ComponentState.get_current(@component)
+      if current_state
+        @model.pages.selected_page = @model.pages[current_state]
+      end
     end
 
     def copy_state_dicts_to_pages(state_dicts, pages)
@@ -154,6 +158,7 @@ module Chroma
       if pages.selected_page
         ComponentState.set_current(@component, pages.selected_page.name)
       end
+      delete_all_pages
     end
 
     def context_menu(model, menu, separator_lambda)
