@@ -109,7 +109,12 @@ module Chroma
 
       current_state = ComponentState.get_current(@component)
       if current_state
-        @model.pages.selected_page = @model.pages[current_state]
+        current_page = @model.pages[current_state]
+        if current_page
+          @model.pages.selected_page = current_page
+        else
+          puts "Current state not found! " + current_state
+        end
       end
     end
 
