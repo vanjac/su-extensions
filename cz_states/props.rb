@@ -220,7 +220,7 @@ module Chroma
 
     def self.friendly_definition_name(component)
       if component.is_a?(Sketchup::Group)
-        return friendly_name(component, nil)
+        return friendly_component_name(component, nil)
       else
         return component.definition.name
       end
