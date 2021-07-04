@@ -153,12 +153,12 @@ module Chroma
       pages = @model.pages
 
       pages.each{ |page|
+        # make sure all states are stored in the definition, even if empty
+        def_states_dict.attribute_dictionary(page.name, true)
         page_dict = page.attribute_dictionary(PAGE_STATE_DICT)
         if !page_dict
           next
         end
-        # make sure all states are stored in the definition, even if empty
-        def_states_dict.attribute_dictionary(page.name, true)
         page_dict.each{ |key, value|
           if ComponentProp.is_instance_prop(key)
             inst_states_dict.set_attribute(page.name, key, value)
