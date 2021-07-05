@@ -17,17 +17,31 @@ module Chroma
     end
 
     def self.set_state_list(component, states)
-      def_states_dict = component.definition.attribute_dictionary(STATES_DICT,
-        true)
-      # delete existing
-      if def_states_dict.attribute_dictionaries
-        def_states_dict.attribute_dictionaries.to_a.each{ |d|
-          def_states_dict.attribute_dictionaries.delete(d)
+      if states.empty?
+        if component.definition.attribute_dictionaries
+          # also deletes "current" attribute
+          component.definition.attribute_dictionaries.delete(STATES_DICT)
+        end
+        # can't use delete_attribute because it will delete the entire
+        # dictionary, ignoring nested dictionaries
+        inst_states_dict = component.attribute_dictionary(STATES_DICT)
+        if inst_states_dict
+          inst_states_dict.delete_key(CURRENT_STATE_ATTR)
+          Chroma::delete_dict_if_empty(component, STATES_DICT)
+        end
+      else
+        def_states_dict = component.definition.attribute_dictionary(STATES_DICT,
+          true)
+        # delete existing
+        if def_states_dict.attribute_dictionaries
+          def_states_dict.attribute_dictionaries.to_a.each{ |d|
+            def_states_dict.attribute_dictionaries.delete(d)
+          }
+        end
+        states.each{ |state|
+          def_states_dict.set_attribute(state, "empty", 0)
         }
       end
-      states.each{ |state|
-        def_states_dict.set_attribute(state, "empty", 0)
-      }
 
       update_states(component, states)
     end
@@ -118,6 +132,7 @@ module Chroma
       if inst_states_dict && inst_states_dict.attribute_dictionaries
         inst_states_dict.attribute_dictionaries.delete(prop)
       end
+      Chroma::delete_dict_if_empty(component, STATES_DICT)
     end
 
     def self.clear_animated_props(component)
@@ -127,10 +142,7 @@ module Chroma
           inst_states_dict.attribute_dictionaries.delete(d)
         }
       end
-      # clean up empty dictionary
-      if inst_states_dict && inst_states_dict.length == 0
-        component.attribute_dictionaries.delete(STATES_DICT)
-      end
+      Chroma::delete_dict_if_empty(component, STATES_DICT)
     end
 
     def self.is_valid_child(c, root)
@@ -154,6 +166,17 @@ module Chroma
         end
       end
       return true
+    end
+  end  # ComponentState
+
+  def self.delete_dict_if_empty(entity, name)
+    dict = entity.attribute_dictionary(name)
+    if !dict
+      return
+    end
+    dict_dicts = dict.attribute_dictionaries
+    if dict.length == 0 && (!dict_dicts || dict_dicts.length == 0)
+      entity.attribute_dictionaries.delete(dict)
     end
   end
 
