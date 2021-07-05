@@ -1,19 +1,25 @@
 module Chroma
 
   class PropsModelObserver < Sketchup::ModelObserver
-    @@model_observers = {}
+    @@model_observers = {}  # key is model.definitions
 
     def initialize(model)
       @last_path = active_path(model)
 
       @global_edit_transforms = {model => Geom::Transformation.new}
       @path_instances = {model => model}
+    end
 
-      @@model_observers[model] = self
+    def self.register_model(model)
+      if !@@model_observers[model.definitions]
+        observer = PropsModelObserver.new(model)
+        model.add_observer(observer)
+        @@model_observers[model.definitions] = observer
+      end
     end
 
     def self.get_observer(model)
-      return @@model_observers[model]
+      return @@model_observers[model.definitions]
     end
 
     def active_path(model)

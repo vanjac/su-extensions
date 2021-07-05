@@ -303,22 +303,21 @@ module Chroma
   class StateAppObserver < Sketchup::AppObserver
     def initialize
       if Sketchup.active_model
-        attach_observers(Sketchup.active_model)
+        register_model(Sketchup.active_model)
       end
     end
 
+    # https://github.com/SketchUp/api-issue-tracker/issues/663
     def onNewModel(model)
-      attach_observers(model)
+      register_model(model)
     end
 
     def onOpenModel(model)
-      attach_observers(model)
+      register_model(model)
     end
 
-    def attach_observers(model)
-      # model objects are reused on Windows for new models, but observers are
-      # automatically removed.
-      model.add_observer(PropsModelObserver.new(model))
+    def register_model(model)
+      PropsModelObserver.register_model(model)
     end
   end
 
