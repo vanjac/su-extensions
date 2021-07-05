@@ -378,6 +378,13 @@ module Chroma
       if !editor
         separator_lambda.call
         menu.add_item('Edit States') {
+          if model.pages.size != 0
+            result = UI.messagebox("This will delete all existing Scenes. " +
+              "Continue?", MB_OKCANCEL)
+            if result == IDCANCEL
+              next
+            end
+          end
           StateModelManager.edit_states(model, selected)
         }
       end
