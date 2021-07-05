@@ -48,12 +48,12 @@ module Chroma
       create_pages
       @model.start_operation('Update States', true)
       ComponentState.update_states(component, get_page_names)
-      @model.commit_operation
 
       if @model.pages.selected_page
         # definition state may not match instance state
         set_state(@model.pages.selected_page)
       end
+      @model.commit_operation
 
       @pages_observer = StatePagesObserver.new(self)
       @model.pages.add_observer(@pages_observer)
@@ -203,11 +203,8 @@ module Chroma
       @model.commit_operation
     end
 
-    # commits operation  TODO bugged when called from FrameObserver
     def set_state(page)
-      @model.start_operation('Set State', true)
       ComponentState.set_state(@component, page.name)
-      @model.commit_operation
     end
 
     def self.init_toolbar
@@ -288,6 +285,7 @@ module Chroma
       @editor.reset_page_properties(page)
       pages.model.start_operation('Add State', true)
       @editor.store_pages
+      @editor.set_state(page)  # TODO seems inefficient
       pages.model.commit_operation
     end
 
@@ -307,7 +305,9 @@ module Chroma
       if percent_done >= 1.0
         # can't commit operations in this callback for some reason
         UI.start_timer(0.05, false) {
+          @editor.model.start_operation('Set State', true)
           @editor.set_state(to_page)
+          @editor.model.commit_operation
         }
       end
     end
