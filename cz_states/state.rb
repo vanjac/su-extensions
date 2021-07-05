@@ -1,7 +1,7 @@
 module Chroma
-  STATES_DICT = "cz_states"
 
   module ComponentState
+    STATES_DICT = "cz_states"
     CURRENT_STATE_ATTR = "current"
 
     def self.get_state_list(component)
@@ -106,6 +106,20 @@ module Chroma
       return []
     end
 
+    # should call update_states afterwards
+    def self.add_animated_prop(component, prop)
+      # create the property dictionary
+      component.attribute_dictionary(STATES_DICT, true).
+        attribute_dictionary(prop, true)
+    end
+
+    def self.remove_animated_prop(component, prop)
+      inst_states_dict = component.attribute_dictionary(STATES_DICT)
+      if inst_states_dict && inst_states_dict.attribute_dictionaries
+        inst_states_dict.attribute_dictionaries.delete(prop)
+      end
+    end
+
     def self.is_valid_child(c, root)
       if !(c.is_a?(Sketchup::ComponentInstance) || c.is_a?(Sketchup::Group))
         return false
@@ -129,5 +143,5 @@ module Chroma
       return true
     end
   end
-end
 
+end

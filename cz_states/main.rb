@@ -37,8 +37,6 @@ module Chroma
   end
 
   class StatesEditor
-    PAGE_STATE_DICT = "cz_state"
-
     attr_reader :component
     attr_reader :model
 
@@ -177,17 +175,12 @@ module Chroma
     end
 
     def add_prop(component, prop)
-      # create the property dictionary
-      component.attribute_dictionary(STATES_DICT, true).
-        attribute_dictionary(prop, true)
+      ComponentState.add_animated_prop(component, prop)
       ComponentState.update_states(component, get_page_names)
     end
 
     def remove_prop(component, prop)
-      inst_states_dict = component.attribute_dictionary(STATES_DICT)
-      if inst_states_dict && inst_states_dict.attribute_dictionaries
-        inst_states_dict.attribute_dictionaries.delete(prop)
-      end
+      ComponentState.remove_animated_prop(component, prop)
     end
 
     def update_state(page)
