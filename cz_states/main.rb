@@ -427,14 +427,14 @@ module Chroma
     if states.empty?
       return
     end
-    current = ComponentState.get_current(component)
+    current = ComponentState.get_state(component)
     separator_lambda.call
     submenu = menu.add_submenu("States")
     states.each { |state|
       selected = state == current
       item = submenu.add_item(state) {
         # even if already selected
-        ComponentState.set_state_in_place(component, state)
+        ComponentState.set_state(component, state)
       }
       submenu.set_validation_proc(item) {
         next selected ? MF_CHECKED : MF_UNCHECKED
