@@ -83,61 +83,16 @@ module Chroma
   class ComponentProp
     PROPS_DICT = "cz_props"
 
-    attr_reader :component
-    attr_reader :name
-    attr_reader :key
-
-    def initialize(component, name, key)
-      @component = component
-      @name = name
-      @key = key
-    end
-
-    def self.from_name(component, name, root)
-      if component == root
-        id_str = "root"
-      else
-        id_str = component.persistent_id.to_s
-      end
-      key = id_str + ":" + name
-      return ComponentProp.new(component, name, key)
-    end
-
-    def self.from_key(key, root)
-      id_str, name = key.split(":")
-      if id_str == "root"
-        component = root
-      else
-        component = root.model.find_entity_by_persistent_id(id_str.to_i)
-        if !component
-          puts "can't find component " + id_str
-        end
-      end
-      return ComponentProp.new(component, name, key)
-    end
-
-    def ==(o)
-      o.class == self.class && o.key == @key
-    end
-
-    alias_method :eql?, :==
-
-    def hash
-      @key.hash
-    end
-
     def self.get_prop_list(component, root)
       if !component.is_a?(Sketchup::ComponentInstance) &&
           !component.is_a?(Sketchup::Group)
         return []
       end
       # applies to every component
-      props = ["Transform", "Color", "Hidden"].map{ |name|
-        ComponentProp.from_name(component, name, root)
-      }
+      props = ["Transform", "Color", "Hidden"]
       # TODO add a has_states? method?
       if component != root && ! ComponentState.get_state_list(component).empty?
-        props.push(ComponentProp.from_name(component, "State", root))
+        props.push("State")
       end
       dict = component.attribute_dictionary(PROPS_DICT)
       if dict
@@ -146,66 +101,57 @@ module Chroma
               value == true || value == false ||
               value.is_a?(Geom::Vector3d) || value.is_a?(Geom::Point3d) ||
               value.is_a?(Sketchup::Color)
-            props.push(ComponentProp.from_name(component, key, root))
+            props.push(key)
           end
         }
       end
       return props
     end
 
-    def get_value
-      if @name == "Transform"
-        return PropsModelObserver.get_observer(@component.model).
-          get_local_transform(@component).to_a
-      elsif @name == "Color"
-        mat = @component.material
+    def self.get_value(component, prop)
+      if prop == "Transform"
+        return PropsModelObserver.get_observer(component.model).
+          get_local_transform(component).to_a
+      elsif prop == "Color"
+        mat = component.material
         if !mat
           return Sketchup::Color.new(255, 255, 255)
         else
           return mat.color
         end
-      elsif @name == "Hidden"
-        return @component.hidden?
-      elsif @name == "State"
-        return ComponentState.get_current(@component) || ""
+      elsif prop == "Hidden"
+        return component.hidden?
+      elsif prop == "State"
+        return ComponentState.get_state(component) || ""
       else
-        dict = @component.attribute_dictionary(PROPS_DICT)
+        dict = component.attribute_dictionary(PROPS_DICT)
         if !dict
           return nil
         else
-          return dict[@name]
+          return dict[prop]
         end
       end
     end
 
-    def set_value(value)
-      if @name == "Transform"
+    def self.set_value(component, prop, value)
+      if prop == "Transform"
         transform = Geom::Transformation.new(value)
-        PropsModelObserver.get_observer(@component.model).
-          set_local_transform(@component, transform)
-      elsif @name == "Color"
-        mat = @component.material
+        PropsModelObserver.get_observer(component.model).
+          set_local_transform(component, transform)
+      elsif prop == "Color"
+        mat = component.material
         if mat
           mat.color = value
         end
-      elsif @name == "Hidden"
-        @component.hidden = value
-      elsif @name == "State"
+      elsif prop == "Hidden"
+        component.hidden = value
+      elsif prop == "State"
         if value != ""
-          ComponentState.set_state_in_place(@component, value)
+          ComponentState.set_state(component, value)
         end
       else
-        @component.attribute_dictionary(PROPS_DICT, true)[@name] = value
+        component.attribute_dictionary(PROPS_DICT, true)[prop] = value
       end
-    end
-
-    def self.is_instance_prop(key)
-      # currently only one instance property
-      return key == "root:Transform"
-    end
-
-    def friendly_name(root)
-      ComponentProp.friendly_component_name(@component, root) + " : " + @name
     end
 
     def self.friendly_component_name(component, root)

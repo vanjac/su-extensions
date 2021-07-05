@@ -43,7 +43,7 @@ module Chroma
             states.each{ |state|
               if state == update_state || !prop_dict[state]
                 if value.nil?  # could be false
-                  value = ComponentProp.new(c, prop_dict.name).get_value
+                  value = ComponentProp.get_value(c, prop_dict.name)
                 end
                 prop_dict[state] = value
               end
@@ -75,7 +75,7 @@ module Chroma
           inst_states_dict.attribute_dictionaries.each{ |prop_dict|
             value = prop_dict[state]
             if value
-              ComponentProp.new(c, prop_dict.name).set_value(value)
+              ComponentProp.set_value(c, prop_dict.name, value)
             end
           }
         end
