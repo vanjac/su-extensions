@@ -7,35 +7,31 @@ Sketchup::load 'cz_states/state'
 module Chroma
 
   module StateModelManager
+    # key is model.definitions, because model objects are reused on Windows but
+    # definitions objects are not
     @@states_editors = {}
 
     def self.edit_states(model, component)
-      editor = @@states_editors[model]
+      editor = @@states_editors[model.definitions]
       if editor && editor.component != component
         editor.close
         editor = nil
       end
       if !editor
         editor = StatesEditor.new(component)
-        @@states_editors[model] = editor
+        @@states_editors[model.definitions] = editor
       end
       return editor
     end
 
     def self.get_editor(model)
-      return @@states_editors[model]
+      return @@states_editors[model.definitions]
     end
 
     def self.close_editor(model)
-      editor = @@states_editors.delete(model)
+      editor = @@states_editors.delete(model.definitions)
       if editor
         editor.close
-      end
-    end
-
-    def self.forget_editor(model)
-      if @@states_editors.delete(model)
-        StatesEditor.hide_toolbar
       end
     end
   end
@@ -255,10 +251,6 @@ module Chroma
       }
     end
 
-    def self.hide_toolbar
-      @@toolbar.hide
-    end
-
     def self.icon_path(name)
       return Sketchup.find_support_file(name + ".png", "Plugins/cz_states/")
     end
@@ -324,10 +316,9 @@ module Chroma
     end
 
     def attach_observers(model)
-      model.add_observer(PropsModelObserver.new(model))
       # model objects are reused on Windows for new models, but observers are
       # automatically removed.
-      StateModelManager.forget_editor(model)
+      model.add_observer(PropsModelObserver.new(model))
     end
   end
 
