@@ -3,15 +3,16 @@ module Chroma
   module ComponentState
     STATES_DICT = "cz_states"
     CURRENT_STATE_ATTR = "current"
+    ANIM_DICT = "cz_anim"
 
     def self.get_state_list(component)
       if !component.is_a?(Sketchup::ComponentInstance) &&
           !component.is_a?(Sketchup::Group)
         return []
       end
-      def_states_dict = component.definition.attribute_dictionary(STATES_DICT)
-      if def_states_dict && def_states_dict.attribute_dictionaries
-        return def_states_dict.attribute_dictionaries.map{ |d| d.name }
+      states_dict = component.definition.attribute_dictionary(STATES_DICT)
+      if states_dict && states_dict.attribute_dictionaries
+        return states_dict.attribute_dictionaries.map{ |d| d.name }
       end
       return []
     end
@@ -22,24 +23,20 @@ module Chroma
           # also deletes "current" attribute
           component.definition.attribute_dictionaries.delete(STATES_DICT)
         end
-        # can't use delete_attribute because it will delete the entire
-        # dictionary, ignoring nested dictionaries
-        inst_states_dict = component.attribute_dictionary(STATES_DICT)
-        if inst_states_dict
-          inst_states_dict.delete_key(CURRENT_STATE_ATTR)
-          Chroma::delete_dict_if_empty(component, STATES_DICT)
+        if component.attribute_dictionaries
+          component.attribute_dictionaries.delete(STATES_DICT)
         end
       else
-        def_states_dict = component.definition.attribute_dictionary(STATES_DICT,
+        states_dict = component.definition.attribute_dictionary(STATES_DICT,
           true)
         # delete existing
-        if def_states_dict.attribute_dictionaries
-          def_states_dict.attribute_dictionaries.to_a.each{ |d|
-            def_states_dict.attribute_dictionaries.delete(d)
+        if states_dict.attribute_dictionaries
+          states_dict.attribute_dictionaries.to_a.each{ |d|
+            states_dict.attribute_dictionaries.delete(d)
           }
         end
         states.each{ |state|
-          def_states_dict.set_attribute(state, "empty", 0)
+          states_dict.set_attribute(state, "empty", 0)
         }
       end
 
@@ -49,9 +46,9 @@ module Chroma
     def self.update_states(component, states, update_state = nil)
       states_set = Set.new(states)
       iterate_in_groups(component) { |c|
-        inst_states_dict = c.attribute_dictionary(STATES_DICT)
-        if inst_states_dict && inst_states_dict.attribute_dictionaries
-          inst_states_dict.attribute_dictionaries.each{ |prop_dict|
+        anim_dict = c.attribute_dictionary(ANIM_DICT)
+        if anim_dict && anim_dict.attribute_dictionaries
+          anim_dict.attribute_dictionaries.each{ |prop_dict|
             value = nil
             # add states
             states.each{ |state|
@@ -80,9 +77,9 @@ module Chroma
 
     def self.set_state(component, state)
       iterate_in_groups(component) { |c|
-        inst_states_dict = c.attribute_dictionary(STATES_DICT)
-        if inst_states_dict && inst_states_dict.attribute_dictionaries
-          inst_states_dict.attribute_dictionaries.each{ |prop_dict|
+        anim_dict = c.attribute_dictionary(ANIM_DICT)
+        if anim_dict && anim_dict.attribute_dictionaries
+          anim_dict.attribute_dictionaries.each{ |prop_dict|
             value = prop_dict[state]
             if value
               ComponentProp.set_value(c, prop_dict.name, value)
@@ -113,9 +110,9 @@ module Chroma
     end
 
     def self.get_animated_props(component)
-      inst_states_dict = component.attribute_dictionary(STATES_DICT)
-      if inst_states_dict && inst_states_dict.attribute_dictionaries
-        return inst_states_dict.attribute_dictionaries.map{ |d| d.name }
+      anim_dict = component.attribute_dictionary(ANIM_DICT)
+      if anim_dict && anim_dict.attribute_dictionaries
+        return anim_dict.attribute_dictionaries.map{ |d| d.name }
       end
       return []
     end
@@ -123,26 +120,25 @@ module Chroma
     # should call update_states afterwards
     def self.add_animated_prop(component, prop)
       # create the property dictionary
-      component.attribute_dictionary(STATES_DICT, true).
+      component.attribute_dictionary(ANIM_DICT, true).
         attribute_dictionary(prop, true)
     end
 
     def self.remove_animated_prop(component, prop)
-      inst_states_dict = component.attribute_dictionary(STATES_DICT)
-      if inst_states_dict && inst_states_dict.attribute_dictionaries
-        inst_states_dict.attribute_dictionaries.delete(prop)
+      anim_dict = component.attribute_dictionary(ANIM_DICT)
+      if anim_dict && anim_dict.attribute_dictionaries
+        anim_dict.attribute_dictionaries.delete(prop)
+        # clean up empty dictionary
+        if anim_dict.attribute_dictionaries.length == 0
+          component.attribute_dictionaries.delete(ANIM_DICT)
+        end
       end
-      Chroma::delete_dict_if_empty(component, STATES_DICT)
     end
 
     def self.clear_animated_props(component)
-      inst_states_dict = component.attribute_dictionary(STATES_DICT)
-      if inst_states_dict && inst_states_dict.attribute_dictionaries
-        inst_states_dict.attribute_dictionaries.to_a.each{ |d|
-          inst_states_dict.attribute_dictionaries.delete(d)
-        }
+      if component.attribute_dictionaries
+        component.attribute_dictionaries.delete(ANIM_DICT)
       end
-      Chroma::delete_dict_if_empty(component, STATES_DICT)
     end
 
     def self.is_valid_child(c, root)
@@ -168,16 +164,5 @@ module Chroma
       return true
     end
   end  # ComponentState
-
-  def self.delete_dict_if_empty(entity, name)
-    dict = entity.attribute_dictionary(name)
-    if !dict
-      return
-    end
-    dict_dicts = dict.attribute_dictionaries
-    if dict.length == 0 && (!dict_dicts || dict_dicts.length == 0)
-      entity.attribute_dictionaries.delete(dict)
-    end
-  end
 
 end
