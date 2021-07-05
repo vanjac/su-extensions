@@ -159,24 +159,6 @@ module Chroma
         component.attribute_dictionary(PROPS_DICT, true)[prop] = value
       end
     end
-
-    def self.friendly_component_name(component, root)
-      if component == root
-        return "root"
-      elsif component.name && component.name != ""
-        return component.name
-      else
-        return "<" + component.definition.name + ">"
-      end
-    end
-
-    def self.friendly_definition_name(component)
-      if component.is_a?(Sketchup::Group)
-        return friendly_component_name(component, nil)
-      else
-        return component.definition.name
-      end
-    end
   end
 
 end
