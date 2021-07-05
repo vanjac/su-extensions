@@ -304,8 +304,12 @@ module Chroma
     end
 
     def frameChange(from_page, to_page, percent_done)
-      #puts "From page #{from_page.to_s} to #{to_page.to_s} (#{percent_done * 100}%)"
-      @editor.set_state(to_page)
+      if percent_done >= 1.0
+        # can't commit operations in this callback for some reason
+        UI.start_timer(0.05, false) {
+          @editor.set_state(to_page)
+        }
+      end
     end
   end
 
