@@ -120,6 +120,19 @@ module Chroma
       end
     end
 
+    def self.clear_animated_props(component)
+      inst_states_dict = component.attribute_dictionary(STATES_DICT)
+      if inst_states_dict && inst_states_dict.attribute_dictionaries
+        inst_states_dict.attribute_dictionaries.to_a.each{ |d|
+          inst_states_dict.attribute_dictionaries.delete(d)
+        }
+      end
+      # clean up empty dictionary
+      if inst_states_dict && inst_states_dict.length == 0
+        component.attribute_dictionaries.delete(STATES_DICT)
+      end
+    end
+
     def self.is_valid_child(c, root)
       if !(c.is_a?(Sketchup::ComponentInstance) || c.is_a?(Sketchup::Group))
         return false

@@ -333,6 +333,12 @@ module Chroma
 
     if selected && (selected.is_a?(Sketchup::ComponentInstance) ||
         selected.is_a?(Sketchup::Group))
+      if ! ComponentState.get_animated_props(selected).empty?
+        separator_lambda.call
+        menu.add_item('Clear Animated Properties') {
+          ComponentState.clear_animated_props(selected)
+        }
+      end
       if !editor || editor.component != selected
         state_menu(selected, menu, separator_lambda)
       end
