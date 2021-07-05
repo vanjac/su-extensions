@@ -267,7 +267,15 @@ module Chroma
       page.use_style = false
 
       @editor.reset_page_properties(page)
+      pages.model.start_operation('Add State', true)
       @editor.store_pages
+      pages.model.commit_operation
+    end
+
+    def onElementRemoved(pages, page)
+      pages.model.start_operation('Remove State', true)
+      @editor.store_pages
+      pages.model.commit_operation
     end
   end
 
