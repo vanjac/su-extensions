@@ -66,10 +66,6 @@ module Chroma
 
     def self.set_state(component, state)
       iterate_in_groups(component) { |c|
-        if c.is_a?(Sketchup::Group)
-          c.make_unique
-        end
-
         inst_states_dict = c.attribute_dictionary(STATES_DICT)
         if inst_states_dict && inst_states_dict.attribute_dictionaries
           inst_states_dict.attribute_dictionaries.each{ |prop_dict|
@@ -86,6 +82,10 @@ module Chroma
     end
 
     def self.iterate_in_groups(component, is_root = true, &action)
+      if component.is_a?(Sketchup::Group)
+        component.make_unique
+      end
+
       action.call(component)
 
       if is_root || component.is_a?(Sketchup::Group)
@@ -96,6 +96,37 @@ module Chroma
           end
         }
       end
+    end
+
+    def self.get_animated_props(component)
+      inst_states_dict = component.attribute_dictionary(STATES_DICT)
+      if inst_states_dict && inst_states_dict.attribute_dictionaries
+        return inst_states_dict.attribute_dictionaries.map{ |d| d.name }
+      end
+      return []
+    end
+
+    def self.is_valid_child(c, root)
+      if !(c.is_a?(Sketchup::ComponentInstance) || c.is_a?(Sketchup::Group))
+        return false
+      end
+      if c == root
+        return true
+      end
+      # make sure c is a child of the root, or nested in unique groups (but not
+      # components, since those could exist elsewhere)
+      loop do
+        parent = c.parent
+        if parent == root.definition
+          return true
+        elsif parent.is_a?(Sketchup::ComponentDefinition) && parent.group? &&
+            parent.count_instances == 1
+          c = parent.instances[0]
+        else
+          return false
+        end
+      end
+      return true
     end
   end
 end

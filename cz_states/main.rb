@@ -49,13 +49,9 @@ module Chroma
     def initialize(component)
       @component = component
       @model = @component.model  # in case component gets deleted
-      @animated_props = Set[]  # set of ComponentProps
-
-      if @component.is_a?(Sketchup::Group)
-        @component.make_unique
-      end
 
       create_pages
+      ComponentState.update_states(component, get_page_names)
 
       if @model.pages.selected_page
         # definition state may not match instance state
@@ -78,10 +74,8 @@ module Chroma
       Sketchup::Pages.remove_frame_change_observer(@frame_observer_id)
       if @component.valid?
         @component.remove_observer(@entity_observer)
-        store_pages
-      else
-        delete_all_pages
       end
+      delete_all_pages
     end
 
     # not including "use" flags
@@ -100,14 +94,13 @@ module Chroma
 
     def create_pages
       delete_all_pages
-      def_state_dicts, inst_state_dicts =
-        ComponentState.def_inst_state_collections(@component)
 
-      copy_state_dicts_to_pages(def_state_dicts, @model.pages)
-      # overrides definition
-      copy_state_dicts_to_pages(inst_state_dicts, @model.pages)
+      ComponentState.get_state_list(@component).each{ |state|
+        page = @model.pages.add(state, 0)
+        reset_page_properties(page)
+      }
 
-      current_state = ComponentState.get_current(@component)
+      current_state = ComponentState.get_state(@component)
       if current_state
         current_page = @model.pages[current_state]
         if current_page
@@ -118,81 +111,34 @@ module Chroma
       end
     end
 
-    def copy_state_dicts_to_pages(state_dicts, pages)
-      if state_dicts
-        state_dicts.each { |s_dict|
-          page = pages[s_dict.name]
-          if !page
-            page = pages.add(s_dict.name, 0)
-            reset_page_properties(page)
-          end
-          page_dict = page.attribute_dictionary(PAGE_STATE_DICT, true)
-          s_dict.each{ |key, value|
-            @animated_props.add(ComponentProp.from_key(key, @component))
-            page_dict[key] = value
-          }
-        }
-      end
+    def store_pages
+      ComponentState.set_state_list(@component, get_page_names)
     end
 
-    def store_pages
-      definition = @component.definition
-      # we can't merge these, even for Groups, because the group could later be
-      # converted into a component (which preserves inst/def dictionaries)
-      if @component.attribute_dictionary(COMPONENT_STATES_DICT)
-        @component.attribute_dictionaries.delete(COMPONENT_STATES_DICT)
-      end
-      inst_states_dict = @component.attribute_dictionary(
-        COMPONENT_STATES_DICT, true)
-      if definition.attribute_dictionary(COMPONENT_STATES_DICT)
-        definition.attribute_dictionaries.delete(COMPONENT_STATES_DICT)
-      end
-      def_states_dict = definition.attribute_dictionary(
-        COMPONENT_STATES_DICT, true)
-
-      pages = @model.pages
-
-      pages.each{ |page|
-        # make sure all states are stored in the definition, even if empty
-        def_states_dict.attribute_dictionary(page.name, true)
-        page_dict = page.attribute_dictionary(PAGE_STATE_DICT)
-        if !page_dict
-          next
-        end
-        page_dict.each{ |key, value|
-          if ComponentProp.is_instance_prop(key)
-            inst_states_dict.set_attribute(page.name, key, value)
-          else
-            def_states_dict.set_attribute(page.name, key, value)
-          end
-        }
-      }
-
-      if pages.selected_page
-        ComponentState.set_current(@component, pages.selected_page.name)
-      end
-      delete_all_pages
+    def get_page_names
+      return @model.pages.map{ |page| page.name }
     end
 
     def context_menu(model, menu, separator_lambda)
       if model.selection.length == 1  # TODO
         c = model.selection[0]
-        if !ComponentState.component_is_valid(c, @component)
+        if !ComponentState.is_valid_child(c, @component)
           return
         end
         props = ComponentProp.get_prop_list(c, @component)
         if props.empty?
           return
         end
+        animated_props = Set.new(ComponentState.get_animated_props(c))
         separator_lambda.call
         submenu = menu.add_submenu("Animated Properties")
         props.each{ |prop|
-          selected = @animated_props.include?(prop)
-          item = submenu.add_item(prop.name) {
+          selected = animated_props.include?(prop)
+          item = submenu.add_item(prop) {
             if !selected
-              add_prop(prop)
+              add_prop(c, prop)
             else
-              remove_prop(prop)
+              remove_prop(c, prop)
             end
           }
           submenu.set_validation_proc(item) {
@@ -203,17 +149,24 @@ module Chroma
     end
 
     def edit_animated_properties
-      check_animated_props
+      component_props = []  # array of [component, prop]
+      ComponentState.iterate_in_groups(@component) { |c|
+        ComponentState.get_animated_props(c).each { |prop|
+          component_props.push([c, prop])
+        }
+      }
 
       def_name = ComponentProp.friendly_definition_name(@component)
-      if @animated_props.empty?
+      if component_props.empty?
         UI.messagebox("No animated properties for " + def_name)
         return
       end
-      props = @animated_props.to_a  # capture consistent order
-      names = props.map{ |prop| prop.friendly_name(@component) + " " }
-      defaults = [""] * names.count
-      lists = ["|Remove"] * names.count
+      names = component_props.map{ |c, prop|
+        ComponentProp.friendly_component_name(c, @component) +
+          " : " + prop + " "
+      }
+      defaults = [""] * component_props.count
+      lists = ["|Remove"] * component_props.count
       result = UI.inputbox(names, defaults, lists, def_name +
         " animated properties")
       if !result
@@ -221,51 +174,32 @@ module Chroma
       end
       (0...(result.count)).each{ |i|
         if result[i] == "Remove"
-          remove_prop(props[i])
+          c, prop = component_props[i]
+          remove_prop(c, prop)
         end
       }
     end
 
-    def check_animated_props
-      invalid = @animated_props.select{ |prop|
-        !ComponentState.component_is_valid(prop.component, @component)
-      }
-      invalid.each{ |prop|
-        puts "deleting prop " + prop.key
-        remove_prop(prop)
-      }
+    def add_prop(component, prop)
+      # create the property dictionary
+      component.attribute_dictionary(STATES_DICT, true).
+        attribute_dictionary(prop, true)
+      ComponentState.update_states(component, get_page_names)
     end
 
-    # add to existing states
-    def add_prop(prop)
-      @animated_props.add(prop)
-      value = prop.get_value
-      @model.pages.each{ |page|
-        page.set_attribute(PAGE_STATE_DICT, prop.key, value)
-      }
-    end
-
-    # remove from existing states
-    def remove_prop(prop)
-      @animated_props.delete(prop)
-      @model.pages.each{ |page|
-        page.delete_attribute(PAGE_STATE_DICT, prop.key)
-      }
+    def remove_prop(component, prop)
+      inst_states_dict = component.attribute_dictionary(STATES_DICT)
+      if inst_states_dict && inst_states_dict.attribute_dictionaries
+        inst_states_dict.attribute_dictionaries.delete(prop)
+      end
     end
 
     def update_state(page)
-      check_animated_props
-      @animated_props.each{ |prop|
-        page.set_attribute(PAGE_STATE_DICT, prop.key, prop.get_value)
-      }
+      ComponentState.update_states(component, get_page_names, page.name)
     end
 
     def set_state(page)
-      check_animated_props
-      state_dict = page.attribute_dictionary(PAGE_STATE_DICT)
-      if state_dict
-        ComponentState.apply_state_dict(@component, state_dict)
-      end
+      ComponentState.set_state(@component, page.name)
     end
 
     def self.init_toolbar
@@ -348,7 +282,7 @@ module Chroma
       page.use_style = false
 
       @editor.reset_page_properties(page)
-      @editor.update_state(page)
+      @editor.store_pages
     end
   end
 
