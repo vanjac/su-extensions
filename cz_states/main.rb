@@ -71,6 +71,10 @@ module Chroma
       Sketchup::Pages.remove_frame_change_observer(@frame_observer_id)
       if @component.valid?
         @component.remove_observer(@entity_observer)
+        # make sure state list is up to date
+        @model.start_operation('Update States', true)
+        store_pages
+        @model.commit_operation
       end
       delete_all_pages
     end
