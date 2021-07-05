@@ -40,12 +40,15 @@ module Chroma
     attr_reader :component
     attr_reader :model
 
+    # commits operation
     def initialize(component)
       @component = component
       @model = @component.model  # in case component gets deleted
 
       create_pages
+      @model.start_operation('Update States', true)
       ComponentState.update_states(component, get_page_names)
+      @model.commit_operation
 
       if @model.pages.selected_page
         # definition state may not match instance state
@@ -174,21 +177,33 @@ module Chroma
       }
     end
 
+    # commits operation
     def add_prop(component, prop)
+      @model.start_operation('Add Animated Property', true)
       ComponentState.add_animated_prop(component, prop)
       ComponentState.update_states(component, get_page_names)
+      @model.commit_operation
     end
 
+    # commits operation
     def remove_prop(component, prop)
+      @model.start_operation('Remove Animated Property', true)
       ComponentState.remove_animated_prop(component, prop)
+      @model.commit_operation
     end
 
+    # commits operation
     def update_state(page)
+      @model.start_operation('Update State', true)
       ComponentState.update_states(component, get_page_names, page.name)
+      @model.commit_operation
     end
 
+    # commits operation  TODO bugged when called from FrameObserver
     def set_state(page)
+      @model.start_operation('Set State', true)
       ComponentState.set_state(@component, page.name)
+      @model.commit_operation
     end
 
     def self.init_toolbar
@@ -344,7 +359,9 @@ module Chroma
       if ! ComponentState.get_animated_props(selected).empty?
         separator_lambda.call
         menu.add_item('Clear Animated Properties') {
+          model.start_operation('Clear Animated Properties', true)
           ComponentState.clear_animated_props(selected)
+          model.commit_operation
         }
       end
       if !editor || editor.component != selected
@@ -370,8 +387,10 @@ module Chroma
     states.each { |state|
       selected = state == current
       item = submenu.add_item(state) {
+        component.model.start_operation('Set State', true)
         # even if already selected
         ComponentState.set_state(component, state)
+        component.model.commit_operation
       }
       submenu.set_validation_proc(item) {
         next selected ? MF_CHECKED : MF_UNCHECKED
