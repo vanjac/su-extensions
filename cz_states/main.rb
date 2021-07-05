@@ -422,6 +422,36 @@ module Chroma
   end
 
 
+  def self.states_context_menu(menu)
+    separator = false
+    separator_lambda = lambda {
+      if !separator
+        menu.add_separator
+        separator = true
+      end
+    }
+
+    model = Sketchup.active_model
+    selected = model.selection.count == 1 ? model.selection[0] : nil
+    editor = StateModelManager.get_editor(Sketchup.active_model)
+    if editor
+      editor.context_menu(Sketchup.active_model, menu, separator_lambda)
+    end
+
+    if selected && (selected.is_a?(Sketchup::ComponentInstance) ||
+        selected.is_a?(Sketchup::Group))
+      if !editor || editor.component != selected
+        state_menu(selected, menu, separator_lambda)
+      end
+      if !editor
+        separator_lambda.call
+        menu.add_item('Edit States') {
+          StateModelManager.edit_states(model, selected)
+        }
+      end
+    end
+  end
+
   def self.state_menu(component, menu, separator_lambda)
     states = ComponentState.get_state_list(component)
     if states.empty?
@@ -446,35 +476,7 @@ module Chroma
     StatesEditor.init_toolbar
 
     # I can't find a way to remove a handler, so we can only add it at the start
-    UI.add_context_menu_handler { |menu|
-      separator = false
-      separator_lambda = lambda {
-        if !separator
-          menu.add_separator
-          separator = true
-        end
-      }
-
-      model = Sketchup.active_model
-      selected = model.selection.count == 1 ? model.selection[0] : nil
-      editor = StateModelManager.get_editor(Sketchup.active_model)
-      if editor
-        editor.context_menu(Sketchup.active_model, menu, separator_lambda)
-      end
-
-      if selected && (selected.is_a?(Sketchup::ComponentInstance) ||
-          selected.is_a?(Sketchup::Group))
-        if !editor || editor.component != selected
-          state_menu(selected, menu, separator_lambda)
-        end
-        if !editor
-          separator_lambda.call
-          menu.add_item('Edit States') {
-            StateModelManager.edit_states(model, selected)
-          }
-        end
-      end
-    }
+    UI.add_context_menu_handler { |menu| self.states_context_menu(menu) }
 
     Sketchup.add_observer(StateAppObserver.new)
 
