@@ -308,29 +308,6 @@ module Chroma
   end
 
 
-  class StateModelObserver < Sketchup::ModelObserver
-    def initialize
-      @component = nil
-    end
-
-    def onPreSaveModel(model)
-      if !@component
-        editor = StateModelManager.get_editor(model)
-        if editor
-          @component = editor.component
-          StateModelManager.close_editor(model)
-        end
-      end
-    end
-
-    def onPostSaveModel(model)
-      if @component
-        StateModelManager.edit_states(model, @component)
-        @component = nil
-      end
-    end
-  end
-
   class StateAppObserver < Sketchup::AppObserver
     def initialize
       if Sketchup.active_model
@@ -347,7 +324,6 @@ module Chroma
     end
 
     def attach_observers(model)
-      model.add_observer(StateModelObserver.new)
       model.add_observer(PropsModelObserver.new(model))
       # model objects are reused on Windows for new models, but observers are
       # automatically removed.
