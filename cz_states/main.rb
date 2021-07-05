@@ -157,14 +157,13 @@ module Chroma
         }
       }
 
-      def_name = Chroma::friendly_definition_name(@component)
+      def_name = friendly_definition_name(@component)
       if component_props.empty?
         UI.messagebox("No animated properties for " + def_name)
         return
       end
       names = component_props.map{ |c, prop|
-        Chroma::friendly_component_name(c, @component) +
-          " : " + prop + " "
+        friendly_component_name(c) + " : " + prop + " "
       }
       defaults = [""] * component_props.count
       lists = ["|Remove"] * component_props.count
@@ -179,6 +178,25 @@ module Chroma
           remove_prop(c, prop)
         end
       }
+    end
+
+    def friendly_component_name(component)
+      if component == @component
+        return "root"
+      elsif component.name && component.name != ""
+        return component.name
+      else
+        return "<" + component.definition.name + ">"
+      end
+    end
+  
+    def friendly_definition_name(component)
+      if component.is_a?(Sketchup::Group) &&
+          component.name && component.name != ""
+        return component.name
+      else
+        return component.definition.name
+      end
     end
 
     # commits operation
@@ -342,25 +360,6 @@ module Chroma
 
     def register_model(model)
       PropsModelObserver.register_model(model)
-    end
-  end
-
-
-  def self.friendly_component_name(component, root)
-    if component == root
-      return "root"
-    elsif component.name && component.name != ""
-      return component.name
-    else
-      return "<" + component.definition.name + ">"
-    end
-  end
-
-  def self.friendly_definition_name(component)
-    if component.is_a?(Sketchup::Group)
-      return friendly_component_name(component, nil)
-    else
-      return component.definition.name
     end
   end
 
