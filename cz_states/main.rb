@@ -51,7 +51,7 @@ module Chroma
 
       if @model.pages.selected_page
         # definition state may not match instance state
-        set_state(@model.pages.selected_page)
+        ComponentState.set_state(@component, @model.pages.selected_page.name)
       end
       @model.commit_operation
 
@@ -199,7 +199,8 @@ module Chroma
       end
     end
 
-    # commits operation
+    # following methods commit operations
+
     def add_prop(component, prop)
       @model.start_operation('Add Animated Property', true)
       ComponentState.add_animated_prop(component, prop)
@@ -207,14 +208,12 @@ module Chroma
       @model.commit_operation
     end
 
-    # commits operation
     def remove_prop(component, prop)
       @model.start_operation('Remove Animated Property', true)
       ComponentState.remove_animated_prop(component, prop)
       @model.commit_operation
     end
 
-    # commits operation
     def update_state(page)
       @model.start_operation('Update State', true)
       ComponentState.update_states(component, get_page_names, page.name)
@@ -222,7 +221,22 @@ module Chroma
     end
 
     def set_state(page)
+      @model.start_operation('Set State', true)
       ComponentState.set_state(@component, page.name)
+      @model.commit_operation
+    end
+
+    def add_state(page)
+      @model.start_operation('Add State', true)
+      store_pages
+      ComponentState.set_current_state(@component, page.name)
+      @model.commit_operation
+    end
+
+    def remove_state
+      @model.start_operation('Remove State', true)
+      store_pages
+      @model.commit_operation
     end
 
     def self.init_toolbar
@@ -301,16 +315,11 @@ module Chroma
       page.use_style = false
 
       @editor.reset_page_properties(page)
-      pages.model.start_operation('Add State', true)
-      @editor.store_pages
-      @editor.set_state(page)  # TODO seems inefficient
-      pages.model.commit_operation
+      @editor.add_state(page)
     end
 
     def onElementRemoved(pages, page)
-      pages.model.start_operation('Remove State', true)
-      @editor.store_pages
-      pages.model.commit_operation
+      @editor.remove_state
     end
   end
 
@@ -323,9 +332,7 @@ module Chroma
       if percent_done >= 1.0
         # can't commit operations in this callback for some reason
         UI.start_timer(0.05, false) {
-          @editor.model.start_operation('Set State', true)
           @editor.set_state(to_page)
-          @editor.model.commit_operation
         }
       end
     end

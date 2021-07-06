@@ -88,6 +88,11 @@ module Chroma
         end
       }
 
+      set_current_state(component, state)
+    end
+
+    # WITHOUT applying state
+    def self.set_current_state(component, state)
       component.set_attribute(STATES_DICT, CURRENT_STATE_ATTR, state)
       component.definition.set_attribute(STATES_DICT, CURRENT_STATE_ATTR, state)
     end
