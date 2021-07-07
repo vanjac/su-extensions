@@ -81,7 +81,14 @@ module Chroma
           close_active(model)
         end
       end
+      relative = transform * component.transformation.inverse
       component.transformation = transform
+      # move glued objects
+      # https://forums.sketchup.com/t/move-glued-components-with-object/169582
+      glued = component.parent.entities.find_all {|e|
+        e.respond_to?(:glued_to) && e.glued_to == component
+      }
+      component.parent.entities.transform_entities(relative, glued)
     end
   end
 
