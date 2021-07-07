@@ -81,6 +81,7 @@ module Chroma
           close_active(model)
         end
       end
+      # I don't know why the order is reversed but it seems to work
       relative = transform * component.transformation.inverse
       component.transformation = transform
       # move glued objects
