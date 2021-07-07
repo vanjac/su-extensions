@@ -10,23 +10,21 @@ module Chroma
   # active throughout model lifetime, once created
   class BackfaceManager < Sketchup::LayersObserver
     LAYER_NAME = "Hide Back Faces"
+    # key is model.definitions, because model objects are reused on Windows but
+    # definitions objects are not
     @@model_managers = {}
 
     def self.add_manager(model)
-      manager = @@model_managers[model]
+      manager = @@model_managers[model.definitions]
       if manager.nil?
         manager = BackfaceManager.new(model)
-        @@model_managers[model] = manager
+        @@model_managers[model.definitions] = manager
       end
       return manager
     end
 
-    def self.remove_manager(model)
-      @@model_managers.delete(model)
-    end
-
     def self.backfaces_hidden(model)
-      manager = @@model_managers[model]
+      manager = @@model_managers[model.definitions]
       if manager.nil?
         return false
       else
@@ -334,23 +332,6 @@ module Chroma
     end
   end
 
-  # active always
-  class BackfaceAppObserver < Sketchup::AppObserver
-    def onNewModel(model)
-      resetObservers(model)
-    end
-
-    def onOpenModel(model)
-      resetObservers(model)
-    end
-
-    def resetObservers(model)
-      # model objects are reused on Windows for new models, but observers are
-      # automatically removed.
-      BackfaceManager.remove_manager(model)
-    end
-  end
-
 
   def self.hide_backfaces
     manager = BackfaceManager.add_manager(Sketchup.active_model)
@@ -379,7 +360,6 @@ module Chroma
         MF_UNCHECKED
       end
     }
-    Sketchup.add_observer(BackfaceAppObserver.new)
     file_loaded(__FILE__)
   end
 
