@@ -83,13 +83,9 @@ module Chroma
       end
       # I don't know why the order is reversed but it seems to work
       relative = transform * component.transformation.inverse
-      component.transformation = transform
-      # move glued objects
-      # https://forums.sketchup.com/t/move-glued-components-with-object/169582
-      glued = component.parent.entities.find_all {|e|
-        e.respond_to?(:glued_to) && e.glued_to == component
-      }
-      component.parent.entities.transform_entities(relative, glued)
+      #component.transformation = transform
+      # transform_entities handles glued objects correctly
+      component.parent.entities.transform_entities(relative, [component])
     end
   end
 
