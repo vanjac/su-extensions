@@ -1,17 +1,33 @@
 require 'sketchup.rb'
 require 'win32ole'
 require 'base64'
+require 'tempfile'
+require 'shellwords'
+
 
 module Chroma
   PLUGIN_PATH = "Plugins/cz_vcb_exact"
 
   def self.enter_exact_vcb
+    file = Tempfile.new('cz_vcb')
+    file.close
     # https://stackoverflow.com/a/47639662
-    encoded = Base64.strict_encode64(READ_VCB_SCRIPT.encode('utf-16le'))
+    script = READ_VCB_SCRIPT + Shellwords.escape(file.path)
+    encoded = Base64.strict_encode64(script.encode('utf-16le'))
     command = "powershell.exe -encodedCommand #{encoded}"
     # run command WITHOUT showing window
     # https://www.ruby-forum.com/t/hiding-the-command-window-when-using-system-on-windows/75495/4
-    puts @@wsh.Run(command, 0, 1)
+    result = @@wsh.Run(command, 0, 1)
+    if result == 0
+      file.open
+      vcb_value = file.read
+      puts "VCB: " + vcb_value
+      # TODO: filter out tildes
+      @@wsh.SendKeys(vcb_value + "~")
+    else
+      UI.messagebox('Error reading from VCB')
+    end
+    file.unlink
   end
 
   unless file_loaded?(__FILE__)
@@ -28,7 +44,7 @@ module Chroma
     # TODO: try -AssemblyName System.Windows.Automation instead
     Add-Type -Path "$AssemblyPath\UIAutomationClient.dll"
     Add-Type -Path "$AssemblyPath\UIAutomationTypes.dll"
-    
+
     $focused = [AutomationElement]::FocusedElement
     # search up until we find the window
     # https://www.meziantou.net/detect-the-opening-of-a-new-window-in-csharp.htm
@@ -43,10 +59,6 @@ module Chroma
     if ($null -eq $vcbEdit) {
       exit 1
     }
-
-    $wshell = New-Object -ComObject wscript.shell;
-    # https://stackoverflow.com/a/17851491
-    # TODO filter out tilde
-    $wshell.SendKeys($vcbEdit.Current.Name + "~")
-  }
+    $vcbValue = $vcbEdit.Current.Name
+    Set-Content -Value $vcbValue -Path }  # file name goes here!
 end
