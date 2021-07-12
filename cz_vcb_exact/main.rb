@@ -24,12 +24,10 @@ module Chroma
   # the following is PowerShell code
   READ_VCB_SCRIPT = %q{
     using namespace System.Windows.Automation
-    Measure-Command {
-      $AssemblyPath = "$env:programfiles\Reference Assemblies\Microsoft\Framework\v3.0"
-      # TODO: try -AssemblyName System.Windows.Automation instead
-      Add-Type -Path "$AssemblyPath\UIAutomationClient.dll"
-      Add-Type -Path "$AssemblyPath\UIAutomationTypes.dll"
-    }
+    $AssemblyPath = "$env:programfiles\Reference Assemblies\Microsoft\Framework\v3.0"
+    # TODO: try -AssemblyName System.Windows.Automation instead
+    Add-Type -Path "$AssemblyPath\UIAutomationClient.dll"
+    Add-Type -Path "$AssemblyPath\UIAutomationTypes.dll"
     
     $focused = [AutomationElement]::FocusedElement
     # search up until we find the window
