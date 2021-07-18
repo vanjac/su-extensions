@@ -31,6 +31,7 @@ module Chroma
 
 
   def self.enter_exact_vcb
+    Sketchup.status_text = "Reading Measurement..."
     # run command WITHOUT showing window
     # https://www.ruby-forum.com/t/hiding-the-command-window-when-using-system-on-windows/75495/4
     result = @@wsh.Run(@@get_vcb_command, 0, 1)
@@ -42,6 +43,7 @@ module Chroma
       else
         UI.messagebox("Error reading measurement")
       end
+      Sketchup.status_text = ""
       return
     end
     @@vcb_temp_file.open
@@ -50,14 +52,15 @@ module Chroma
     ensure
       @@vcb_temp_file.close
     end
-    puts "VCB: " + vcb_value
     if vcb_value.include? "~"
       UI.messagebox("Measurement isn't exact! (indicated by ~)")
+      Sketchup.status_text = ""
       return
     end
     # https://docs.microsoft.com/en-us/previous-versions//8c6yea83(v=vs.85)
     # TODO wrap special characters in {}
     @@wsh.SendKeys(vcb_value + "~")
+    Sketchup.status_text = "Entered: " + vcb_value
   end
 
   unless file_loaded?(__FILE__)
