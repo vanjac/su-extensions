@@ -17,7 +17,13 @@ module Chroma
     # https://www.ruby-forum.com/t/hiding-the-command-window-when-using-system-on-windows/75495/4
     result = @@wsh.Run(command, 0, 1)
     if result != 0
-      UI.messagebox('Error reading from VCB')
+      if result == 1
+        UI.messagebox("Couldn't find SketchUp window (not focused)")
+      elsif result == 2
+        UI.messagebox("Couldn't find Measurements toolbar")
+      else
+        UI.messagebox("Error reading measurement")
+      end
       return
     end
     @@vcb_temp_file.open
@@ -40,7 +46,7 @@ module Chroma
     @@vcb_temp_file = Tempfile.new('cz_vcb')
     @@vcb_temp_file.close
 
-    UI.menu.add_item('Enter Exact VCB') {
+    UI.menu.add_item('Enter Exact Measurement') {
       enter_exact_vcb
     }
   end
@@ -57,13 +63,13 @@ module Chroma
     while ($focused.Current.ControlType -ne [ControlType]::Window) {
       $focused = [TreeWalker]::RawViewWalker.GetParent($focused)
       if ($null -eq $focused) {
-        exit 1
+        exit 1  # bad focus
       }
     }
     $findVCBEdit = New-Object PropertyCondition ([AutomationElement]::AutomationIdProperty), "24214"
     $vcbEdit = $focused.FindFirst("Descendants", $findVCBEdit)
     if ($null -eq $vcbEdit) {
-      exit 1
+      exit 2  # can't find measurements toolbar
     }
     $vcbValue = $vcbEdit.Current.Name
     Set-Content -Value $vcbValue -Path }  # file name goes here!
