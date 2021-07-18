@@ -18,15 +18,18 @@ module Chroma
     # run command WITHOUT showing window
     # https://www.ruby-forum.com/t/hiding-the-command-window-when-using-system-on-windows/75495/4
     result = @@wsh.Run(command, 0, 1)
-    if result == 0
-      file.open
-      vcb_value = file.read
-      puts "VCB: " + vcb_value
-      # TODO: filter out tildes
-      @@wsh.SendKeys(vcb_value + "~")
-    else
+    if result != 0
       UI.messagebox('Error reading from VCB')
+      return
     end
+    file.open
+    vcb_value = file.read
+    puts "VCB: " + vcb_value
+    if vcb_value.include? "~"
+      UI.messagebox("VCB isn't exact! (indicated by ~)")
+      return
+    end
+    @@wsh.SendKeys(vcb_value + "~")
     file.unlink
   end
 
@@ -41,6 +44,7 @@ module Chroma
   READ_VCB_SCRIPT = %q{
     using namespace System.Windows.Automation
     Add-Type -AssemblyName UIAutomationClient
+    # TODO also UIAutomationTypes?
 
     $focused = [AutomationElement]::FocusedElement
     # search up until we find the window
