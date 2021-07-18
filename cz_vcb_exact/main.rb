@@ -52,7 +52,7 @@ module Chroma
     end
     puts "VCB: " + vcb_value
     if vcb_value.include? "~"
-      UI.messagebox("VCB isn't exact! (indicated by ~)")
+      UI.messagebox("Measurement isn't exact! (indicated by ~)")
       return
     end
     # https://docs.microsoft.com/en-us/previous-versions//8c6yea83(v=vs.85)
