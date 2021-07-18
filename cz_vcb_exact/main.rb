@@ -28,7 +28,7 @@ module Chroma
     end
     @@vcb_temp_file.open
     begin
-      vcb_value = @@vcb_temp_file.read
+      vcb_value = @@vcb_temp_file.read.strip
     ensure
       @@vcb_temp_file.close
     end
@@ -37,6 +37,8 @@ module Chroma
       UI.messagebox("VCB isn't exact! (indicated by ~)")
       return
     end
+    # https://docs.microsoft.com/en-us/previous-versions//8c6yea83(v=vs.85)
+    # TODO wrap special characters in {}
     @@wsh.SendKeys(vcb_value + "~")
   end
 
