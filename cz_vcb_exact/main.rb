@@ -9,10 +9,8 @@ module Chroma
   PLUGIN_PATH = "Plugins/cz_vcb_exact"
 
   def self.enter_exact_vcb
-    file = Tempfile.new('cz_vcb')
-    file.close
     # https://stackoverflow.com/a/47639662
-    script = READ_VCB_SCRIPT + Shellwords.escape(file.path)
+    script = READ_VCB_SCRIPT + Shellwords.escape(@@vcb_temp_file.path)
     encoded = Base64.strict_encode64(script.encode('utf-16le'))
     command = "powershell.exe -encodedCommand #{encoded}"
     # run command WITHOUT showing window
@@ -22,19 +20,26 @@ module Chroma
       UI.messagebox('Error reading from VCB')
       return
     end
-    file.open
-    vcb_value = file.read
+    @@vcb_temp_file.open
+    begin
+      vcb_value = @@vcb_temp_file.read
+    ensure
+      @@vcb_temp_file.close
+    end
     puts "VCB: " + vcb_value
     if vcb_value.include? "~"
       UI.messagebox("VCB isn't exact! (indicated by ~)")
       return
     end
     @@wsh.SendKeys(vcb_value + "~")
-    file.unlink
   end
 
   unless file_loaded?(__FILE__)
     @@wsh = WIN32OLE.new('Wscript.Shell')
+    # should be deleted when sketchup is closed
+    @@vcb_temp_file = Tempfile.new('cz_vcb')
+    @@vcb_temp_file.close
+
     UI.menu.add_item('Enter Exact VCB') {
       enter_exact_vcb
     }
