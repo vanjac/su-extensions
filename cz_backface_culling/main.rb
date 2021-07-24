@@ -41,6 +41,10 @@ module Chroma
 
       @model.layers.add_observer(self)
       @model.add_observer(BackfaceUndoObserver.new(self))
+
+      # check for known conflicts with specific extensions...
+      eneroth_auto_weld = Sketchup.extensions["16cd999d-050e-4910-b0a4-699f83decd75"]
+      @block_follow_me = eneroth_auto_weld && eneroth_auto_weld.loaded?
     end
 
     def enable
@@ -163,7 +167,8 @@ module Chroma
       # fix crash caused by updating faces with Move tool in "pick" state
       # (while in moving state back-faces don't update anyway)
       # also fix triggering Eneroth Auto Weld while in Follow Me tool
-      if current_tool == 21048 || current_tool == 21525  # move || follow me
+      if current_tool == 21048 ||  # move tool
+          (current_tool == 21525 && @block_follow_me)  # follow me tool
         return
       end
       cam_eye = @model.active_view.camera.eye
