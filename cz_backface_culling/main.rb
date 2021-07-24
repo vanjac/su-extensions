@@ -159,6 +159,13 @@ module Chroma
       if !active?
         return
       end
+      current_tool = @model.tools.active_tool_id
+      # fix crash caused by updating faces with Move tool in "pick" state
+      # (while in moving state back-faces don't update anyway)
+      # also fix triggering Eneroth Auto Weld while in Follow Me tool
+      if current_tool == 21048 || current_tool == 21525  # move || follow me
+        return
+      end
       cam_eye = @model.active_view.camera.eye
       layer0 = @model.layers["Layer0"]  # aka "untagged"
       selection = @model.selection
