@@ -1,9 +1,8 @@
-require 'sketchup.rb'
+require 'sketchup'
 require 'win32ole'
 require 'base64'
 require 'tempfile'
 require 'shellwords'
-
 
 module Chroma
   # the following is PowerShell code
@@ -27,11 +26,10 @@ module Chroma
       exit 2  # can't find measurements toolbar
     }
     $vcbValue = $vcbEdit.Current.Name
-    Set-Content -Value $vcbValue -Path }  # file name goes here!
-
+    Set-Content -Value $vcbValue -Path }.freeze # file name goes here!
 
   def self.enter_exact_vcb
-    Sketchup.status_text = "Reading Measurement..."
+    Sketchup.status_text = 'Reading Measurement...'
     # run command WITHOUT showing window
     # https://www.ruby-forum.com/t/hiding-the-command-window-when-using-system-on-windows/75495/4
     result = @@wsh.Run(@@get_vcb_command, 0, 1)
@@ -41,9 +39,9 @@ module Chroma
       elsif result == 2
         UI.messagebox("Couldn't find Measurements toolbar")
       else
-        UI.messagebox("Error reading measurement")
+        UI.messagebox('Error reading measurement')
       end
-      Sketchup.status_text = ""
+      Sketchup.status_text = ''
       return
     end
     @@vcb_temp_file.open
@@ -52,15 +50,15 @@ module Chroma
     ensure
       @@vcb_temp_file.close
     end
-    if vcb_value.include? "~"
+    if vcb_value.include? '~'
       UI.messagebox("Measurement isn't exact! (indicated by ~)")
-      Sketchup.status_text = ""
+      Sketchup.status_text = ''
       return
     end
     # https://docs.microsoft.com/en-us/previous-versions//8c6yea83(v=vs.85)
     # TODO wrap special characters in {}
-    @@wsh.SendKeys(vcb_value + "~")
-    Sketchup.status_text = "Entered: " + vcb_value
+    @@wsh.SendKeys("#{vcb_value}~")
+    Sketchup.status_text = "Entered: #{vcb_value}"
   end
 
   unless file_loaded?(__FILE__)
@@ -73,8 +71,8 @@ module Chroma
     encoded = Base64.strict_encode64(script.encode('utf-16le'))
     @@get_vcb_command = "powershell.exe -encodedCommand #{encoded}"
 
-    UI.menu.add_item('Enter Exact Measurement') {
+    UI.menu.add_item('Enter Exact Measurement') do
       enter_exact_vcb
-    }
+    end
   end
 end

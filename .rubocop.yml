@@ -8,6 +8,8 @@ Naming/MethodName:
   IgnoredPatterns:
     - '\A\s*on[A-Z]' # ignore SU observer methods
 
+Style/CaseLikeIf:
+  Enabled: false # case is ugly
 Style/CommentAnnotation:
   Enabled: false
 Style/Documentation:
