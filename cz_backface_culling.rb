@@ -1,8 +1,7 @@
-require 'sketchup.rb'
-require 'extensions.rb'
+require 'sketchup'
+require 'extensions'
 
 module Chroma
-
   unless file_loaded?(__FILE__)
     ex = SketchupExtension.new('Hide Back Faces', 'cz_backface_culling/main')
     ex.description = 'Hide faces which face away from the camera'
@@ -12,5 +11,4 @@ module Chroma
     @@backface_culling_extension = ex
     file_loaded(__FILE__)
   end
-
 end

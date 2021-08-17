@@ -1,0 +1,22 @@
+Lint/MissingSuper:
+  Enabled: false # for SU observers
+
+Metrics:
+  Enabled: false
+
+Naming/MethodName:
+  IgnoredPatterns:
+    - '\A\s*on[A-Z]' # ignore SU observer methods
+
+Style/CommentAnnotation:
+  Enabled: false
+Style/Documentation:
+  Enabled: false
+Style/FrozenStringLiteralComment:
+  Enabled: false
+Style/NonNilCheck:
+  IncludeSemanticChanges: true
+Style/NumericLiterals:
+  Enabled: false # for tool number constants, etc.
+Style/SafeNavigation:
+  Enabled: false # added in 2.3.0, SU 2017 uses 2.2.4
