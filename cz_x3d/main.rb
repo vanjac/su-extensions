@@ -1,5 +1,6 @@
 require 'sketchup'
 require 'rexml/document'
+require 'set'
 
 module Chroma
   class X3DWriter
@@ -14,11 +15,14 @@ module Chroma
     end
 
     def write(model, path)
+      @used_materials = Set[] # set of material names
+
       doc = REXML::Document.new
       doc << REXML::XMLDecl.new('1.0', 'UTF-8')
 
-      root = doc.add_element('X3D',
-        { 'version' => @version, 'profile' => @profile })
+      root = doc.add_element('X3D')
+      root.add_attribute('version', @version)
+      root.add_attribute('profile', @profile)
       scene = root.add_element('Scene')
 
       write_entities(model.entities, scene)
@@ -31,11 +35,12 @@ module Chroma
     def write_entities(entities, root)
       # TODO: group by material
       entities.grep(Sketchup::Face) do |face|
+        shape = root.add_element('Shape')
+
         mesh = face.mesh(1 | 4) # UVQFront, Normals
         normals_array = (1..mesh.count_points).map { |i| mesh.normal_at(i) }
         indices_array = mesh.polygons.flatten(1).map { |x| x.abs - 1 }
 
-        shape = root.add_element('Shape')
         tri_set = shape.add_element('IndexedTriangleSet')
         coord = tri_set.add_element('Coordinate')
         coord.add_attribute('point', points_to_mfvec3f(mesh.points))
@@ -44,11 +49,35 @@ module Chroma
         texcoord = tri_set.add_element('TextureCoordinate')
         texcoord.add_attribute('point', texcoords_to_mfvec2f(mesh.uvs(true)))
         tri_set.add_attribute('index', join_mf(indices_array))
+
+        face_mat = face.material
+
+        if face_mat
+          if @used_materials.include? face_mat.name
+            shape.add_element('Appearance', {'USE' => face_mat.name})
+          else
+            appearance = shape.add_element('Appearance')
+            appearance.add_attribute('DEF', face_mat.name)
+            appearance.add_element('Material')
+            face_tex = face_mat.texture
+            if face_tex
+              # TODO version 4.0 supports textures assigned to Material
+              imagetex = appearance.add_element('ImageTexture')
+              imagetex.add_attribute('url', path_to_uri(face_tex.filename))
+            end
+            @used_materials.add(face_mat.name)
+          end
+        end
       end
     end
 
     def length_to_units(length)
       length.to_m # TODO version 3.3 supports UNIT statement
+    end
+
+    def path_to_uri(path)
+      # TODO handle relative paths
+      "file:///#{path.gsub('\\', '/')}"
     end
 
     # FIELDS
