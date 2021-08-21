@@ -54,10 +54,10 @@ module Chroma
 
         if face_mat
           if @used_materials.include? face_mat.name
-            shape.add_element('Appearance', {'USE' => face_mat.name})
+            shape.add_element('Appearance', { 'USE' => "mat:#{face_mat.name}" })
           else
             appearance = shape.add_element('Appearance')
-            appearance.add_attribute('DEF', face_mat.name)
+            appearance.add_attribute('DEF', "mat:#{face_mat.name}")
             appearance.add_element('Material')
             face_tex = face_mat.texture
             if face_tex
