@@ -46,6 +46,7 @@ module Chroma
       transform = scene.add_element('Transform')
       transform.add_attribute('rotation', "-1 0 0 #{Math::PI / 2}")
       transform.add_attribute('scale', ([1.to_m] * 3).join(' '))
+      transform.add_attribute('DEF', '@world')
 
       write_entities(model.entities, transform)
 
