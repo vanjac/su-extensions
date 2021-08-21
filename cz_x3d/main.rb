@@ -242,9 +242,10 @@ module Chroma
 
   def self.export_x3d
     # path = UI.savepanel('Export X3D', '', '*.x3d')
+    path = Sketchup.active_model.path.sub('.skp', '.x3d')
     writer = X3DWriter.new('3.2', 'Full')
     writer.debug = true
-    writer.write(Sketchup.active_model, 'D:\\git\\su-extensions\\test.x3d')
+    writer.write(Sketchup.active_model, path)
   end
 
   unless file_loaded?(__FILE__)
