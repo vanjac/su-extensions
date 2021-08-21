@@ -4,6 +4,10 @@ require 'set'
 
 module Chroma
   class X3DWriter
+    COMPONENT_VECTORS = [Geom::Vector3d.new(1, 0, 0),
+                         Geom::Vector3d.new(0, 1, 0),
+                         Geom::Vector3d.new(0, 0, 1)].freeze
+
     attr_accessor :debug
 
     def initialize(version, profile)
@@ -71,14 +75,13 @@ module Chroma
       transformation = instance.transformation
       # https://math.stackexchange.com/a/1463487
       translate = transformation.origin
-      axes = [transformation.xaxis, transformation.yaxis, transformation.zaxis]
-      scale = axes.map(&:length)
-      rot_matrix = axes.map(&:normalize)
+      scale = COMPONENT_VECTORS.map { |comp| (transformation * comp).length }
+      rot = [transformation.xaxis, transformation.yaxis, transformation.zaxis]
       # https://en.wikipedia.org/wiki/Rotation_matrix
       # TODO: check for singularity?
-      rot_axis = Geom::Vector3d.new(rot_matrix[1].z - rot_matrix[2].y,
-                                    rot_matrix[2].x - rot_matrix[0].z,
-                                    rot_matrix[0].y - rot_matrix[1].x)
+      rot_axis = Geom::Vector3d.new(rot[1].z - rot[2].y,
+                                    rot[2].x - rot[0].z,
+                                    rot[0].y - rot[1].x)
       rot_angle = Math.asin(rot_axis.length / 2)
       rot_axis.normalize!
 
