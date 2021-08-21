@@ -39,9 +39,10 @@ module Chroma
         write_definition(definition, scene)
       end
 
-      # unit conversion transform
+      # unit conversion / coordinate space transform
       # TODO version 3.3 supports UNIT statement
       transform = scene.add_element('Transform')
+      transform.add_attribute('rotation', "-1 0 0 #{Math::PI / 2}")
       transform.add_attribute('scale', ([1.to_m] * 3).join(' '))
 
       write_entities(model.entities, transform)
