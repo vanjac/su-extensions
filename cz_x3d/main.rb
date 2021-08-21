@@ -98,25 +98,57 @@ module Chroma
       proto.add_attribute('name', instance.definition.name)
     end
 
+    class ShapeBuilder
+      attr_accessor :points, :normals, :uvs, :indices
+
+      def initialize
+        @points = []
+        @normals = []
+        @uvs = []
+        @indices = []
+      end
+    end
+
     def write_mesh(entities, root)
-      # TODO: group by material
+      material_builders = {}
+
       entities.grep(Sketchup::Face) do |face|
-        shape = root.add_element('Shape')
+        face_mat = face.material
+        builder = material_builders[face_mat]
+        unless builder
+          builder = ShapeBuilder.new
+          material_builders[face_mat] = builder
+        end
 
         mesh = face.mesh(1 | 4) # UVQFront, Normals
-        normals_array = (1..mesh.count_points).map { |i| mesh.normal_at(i) }
-        indices_array = mesh.polygons.flatten(1).map { |x| x.abs - 1 }
+        index_start = builder.points.count
+        builder.points.concat(mesh.points)
+        builder.normals.concat((1..mesh.count_points).map do |i|
+          mesh.normal_at(i)
+        end)
+        builder.uvs.concat(mesh.uvs(true).map do |point|
+          # X3D does not support homogeneous coordinates
+          # TODO: use vertex attribute?
+          u = point.x.to_f / point.z.to_f
+          v = point.y.to_f / point.z.to_f
+          "#{u} #{v}"
+        end)
+        builder.indices.concat(mesh.polygons.flatten(1).map do |x|
+          x.abs - 1 + index_start
+        end)
+      end
+
+      material_builders.each do |face_mat, builder|
+        shape = root.add_element('Shape')
 
         tri_set = shape.add_element('IndexedTriangleSet')
         coord = tri_set.add_element('Coordinate')
-        coord.add_attribute('point', write_mfvec3f(mesh.points))
+        coord.add_attribute('point', write_mfvec3f(builder.points))
         normal = tri_set.add_element('Normal')
-        normal.add_attribute('vector', write_mfvec3f(normals_array))
+        normal.add_attribute('vector', write_mfvec3f(builder.normals))
         texcoord = tri_set.add_element('TextureCoordinate')
-        texcoord.add_attribute('point', texcoords_to_mfvec2f(mesh.uvs(true)))
-        tri_set.add_attribute('index', join_mf(indices_array))
-
-        face_mat = face.material
+        texcoord.add_attribute('point', join_mf(builder.uvs))
+        tri_set.add_attribute('index', join_mf(builder.indices))
 
         if face_mat
           # TODO: some way to share materials between prototypes?
@@ -154,18 +186,6 @@ module Chroma
 
     def write_mfvec3f(array)
       join_mf(array.map { |x| write_sfvec3f(x) })
-    end
-
-    def texcoord_to_svvec2f(point)
-      # X3D does not support homogeneous coordinates
-      # TODO: use vertex attribute?
-      u = point.x.to_f / point.z.to_f
-      v = point.y.to_f / point.z.to_f
-      "#{u} #{v}"
-    end
-
-    def texcoords_to_mfvec2f(points)
-      join_mf(points.map { |x| texcoord_to_svvec2f(x) })
     end
 
     def write_sfcolor(color)
