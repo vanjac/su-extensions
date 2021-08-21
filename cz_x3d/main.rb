@@ -77,7 +77,7 @@ module Chroma
       declare = root.add_element('ProtoDeclare')
       declare.add_attribute('name', definition.name)
       body = declare.add_element('ProtoBody')
-      group = body.add_element('Group')
+      group = write_custom_node(definition, body) || body.add_element('Group')
       write_entities(definition.entities, group)
     end
 
@@ -179,6 +179,37 @@ module Chroma
       end
     end
 
+    def write_custom_node(entity, root)
+      x3d_dict = entity.attribute_dictionary('x3d')
+      return nil unless x3d_dict
+
+      node_type = x3d_dict['!type']
+      return nil unless node_type
+
+      node = root.add_element(node_type)
+      x3d_dict.each do |key, value|
+        next if key.start_with? '!'
+
+        # TODO Arrays (MF)
+        field_val = case value
+                    when Length
+                      value.to_f.to_s
+                    when Geom::Point3d, Geom::Vector3d
+                      write_sfvec3f(value)
+                    when Sketchup::Color
+                      if value.alpha == 255
+                        write_sfcolor(value)
+                      else
+                        write_sfcolorrgba(value)
+                      end
+                    else
+                      value.to_s
+                    end
+        node.add_attribute(key, field_val)
+      end
+      node
+    end
+
     def path_to_uri(path)
       # TODO handle relative paths and special characters
       # https://doc.instantreality.org/documentation/nodetype/ImageTexture2D/
@@ -202,6 +233,10 @@ module Chroma
 
     def write_sfcolor(color)
       "#{color.red / 255.0} #{color.green / 255.0} #{color.blue / 255.0}"
+    end
+
+    def write_sfcolorrgba(color)
+      "#{color.red / 255.0} #{color.green / 255.0} #{color.blue / 255.0} #{color.alpha / 255.0}"
     end
   end
 
