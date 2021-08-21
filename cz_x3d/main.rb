@@ -17,6 +17,12 @@ module Chroma
     def write(model, path)
       @used_materials = Set[] # set of material names
 
+      # close all active contexts, to ensure all transformations are local
+      active_path = model.active_path || []
+      (0...(active_path.count)).each do |_|
+        close_active(model)
+      end
+
       doc = REXML::Document.new
       doc << REXML::XMLDecl.new('1.0', 'UTF-8')
 
@@ -25,14 +31,71 @@ module Chroma
       root.add_attribute('profile', @profile)
       scene = root.add_element('Scene')
 
-      write_entities(model.entities, scene)
+      model.definitions.each do |definition|
+        write_definition(definition, scene)
+      end
+
+      # unit conversion transform
+      # TODO version 3.3 supports UNIT statement
+      transform = scene.add_element('Transform')
+      transform.add_attribute('scale', ([1.to_m] * 3).join(' '))
+
+      write_entities(model.entities, transform)
 
       File.open(path, 'w') do |file|
         doc.write(output: file, indent: @debug ? 2 : -1)
       end
     end
 
+    def write_definition(definition, root)
+      declare = root.add_element('ProtoDeclare')
+      declare.add_attribute('name', definition.name)
+      body = declare.add_element('ProtoBody')
+      group = body.add_element('Group')
+      write_entities(definition.entities, group)
+    end
+
     def write_entities(entities, root)
+      entities.grep(Sketchup::ComponentInstance) do |instance|
+        write_instance(instance, root)
+      end
+      entities.grep(Sketchup::Group) do |group|
+        write_instance(group, root)
+      end
+
+      # TODO: share mesh between instances. use a StaticGroup?
+      write_mesh(entities, root)
+    end
+
+    def write_instance(instance, root)
+      transformation = instance.transformation
+      # https://math.stackexchange.com/a/1463487
+      translate = transformation.origin
+      axes = [transformation.xaxis, transformation.yaxis, transformation.zaxis]
+      scale = axes.map(&:length)
+      rot_matrix = axes.map(&:normalize)
+      # https://en.wikipedia.org/wiki/Rotation_matrix
+      # TODO: check for singularity?
+      rot_axis = Geom::Vector3d.new(rot_matrix[1].z - rot_matrix[2].y,
+                                    rot_matrix[2].x - rot_matrix[0].z,
+                                    rot_matrix[0].y - rot_matrix[1].x)
+      rot_angle = Math.asin(rot_axis.length / 2)
+      rot_axis.normalize!
+
+      transform = root.add_element('Transform')
+      transform.add_attribute('translation', write_sfvec3f(translate))
+      transform.add_attribute('rotation',
+                              "#{write_sfvec3f(rot_axis)} #{rot_angle}")
+      transform.add_attribute('scale', scale.map(&:to_f).join(' '))
+
+      proto = transform.add_element('ProtoInstance')
+      unless instance.name.empty?
+        proto.add_attribute('DEF', instance.name)
+      end
+      proto.add_attribute('name', instance.definition.name)
+    end
+
+    def write_mesh(entities, root)
       # TODO: group by material
       entities.grep(Sketchup::Face) do |face|
         shape = root.add_element('Shape')
@@ -43,9 +106,9 @@ module Chroma
 
         tri_set = shape.add_element('IndexedTriangleSet')
         coord = tri_set.add_element('Coordinate')
-        coord.add_attribute('point', points_to_mfvec3f(mesh.points))
+        coord.add_attribute('point', write_mfvec3f(mesh.points))
         normal = tri_set.add_element('Normal')
-        normal.add_attribute('vector', vectors_to_mfvec3f(normals_array))
+        normal.add_attribute('vector', write_mfvec3f(normals_array))
         texcoord = tri_set.add_element('TextureCoordinate')
         texcoord.add_attribute('point', texcoords_to_mfvec2f(mesh.uvs(true)))
         tri_set.add_attribute('index', join_mf(indices_array))
@@ -57,6 +120,7 @@ module Chroma
             shape.add_element('Appearance', { 'USE' => "mat:#{face_mat.name}" })
           else
             appearance = shape.add_element('Appearance')
+            # TODO: can't share between prototypes?
             appearance.add_attribute('DEF', "mat:#{face_mat.name}")
             appearance.add_element('Material')
             face_tex = face_mat.texture
@@ -71,10 +135,6 @@ module Chroma
       end
     end
 
-    def length_to_units(length)
-      length.to_m # TODO version 3.3 supports UNIT statement
-    end
-
     def path_to_uri(path)
       # TODO handle relative paths
       "file:///#{path.gsub('\\', '/')}"
@@ -87,22 +147,12 @@ module Chroma
       sf_array.join(', ')
     end
 
-    # performs unit conversion
-    def point_to_svvec3f(point)
-      "#{length_to_units(point.x)} #{length_to_units(point.y)} #{length_to_units(point.z)}"
+    def write_sfvec3f(v)
+      "#{v.x.to_f} #{v.y.to_f} #{v.z.to_f}"
     end
 
-    def points_to_mfvec3f(points)
-      join_mf(points.map { |x| point_to_svvec3f(x) })
-    end
-
-    # does NOT perform unit conversion
-    def vector_to_sfvec3f(vector)
-      "#{vector.x.to_f} #{vector.y.to_f} #{vector.z.to_f}"
-    end
-
-    def vectors_to_mfvec3f(vectors)
-      join_mf(vectors.map { |x| vector_to_sfvec3f(x) })
+    def write_mfvec3f(array)
+      join_mf(array.map { |x| write_sfvec3f(x) })
     end
 
     def texcoord_to_svvec2f(point)
