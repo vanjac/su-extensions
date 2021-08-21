@@ -19,8 +19,6 @@ module Chroma
     end
 
     def write(model, path)
-      @used_materials = Set[] # set of material names
-
       # close all active contexts, to ensure all transformations are local
       active_path = model.active_path || []
       (0...(active_path.count)).each do |_|
@@ -121,20 +119,14 @@ module Chroma
         face_mat = face.material
 
         if face_mat
-          if @used_materials.include? face_mat.name
-            shape.add_element('Appearance', { 'USE' => "mat:#{face_mat.name}" })
-          else
-            appearance = shape.add_element('Appearance')
-            # TODO: can't share between prototypes?
-            appearance.add_attribute('DEF', "mat:#{face_mat.name}")
-            appearance.add_element('Material')
-            face_tex = face_mat.texture
-            if face_tex
-              # TODO version 4.0 supports textures assigned to Material
-              imagetex = appearance.add_element('ImageTexture')
-              imagetex.add_attribute('url', path_to_uri(face_tex.filename))
-            end
-            @used_materials.add(face_mat.name)
+          # TODO: some way to share materials between prototypes?
+          appearance = shape.add_element('Appearance')
+          appearance.add_element('Material')
+          face_tex = face_mat.texture
+          if face_tex
+            # TODO version 4.0 supports textures assigned to Material
+            imagetex = appearance.add_element('ImageTexture')
+            imagetex.add_attribute('url', path_to_uri(face_tex.filename))
           end
         end
       end
