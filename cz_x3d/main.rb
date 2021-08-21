@@ -121,12 +121,15 @@ module Chroma
         if face_mat
           # TODO: some way to share materials between prototypes?
           appearance = shape.add_element('Appearance')
-          appearance.add_element('Material')
+          material = appearance.add_element('Material')
           face_tex = face_mat.texture
           if face_tex
             # TODO version 4.0 supports textures assigned to Material
             imagetex = appearance.add_element('ImageTexture')
             imagetex.add_attribute('url', path_to_uri(face_tex.filename))
+          else
+            # TODO colorized textures
+            material.add_attribute('diffuseColor', write_sfcolor(face_mat.color))
           end
         end
       end
@@ -163,6 +166,10 @@ module Chroma
 
     def texcoords_to_mfvec2f(points)
       join_mf(points.map { |x| texcoord_to_svvec2f(x) })
+    end
+
+    def write_sfcolor(color)
+      "#{color.red / 255.0} #{color.green / 255.0} #{color.blue / 255.0}"
     end
   end
 
