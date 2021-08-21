@@ -33,6 +33,10 @@ module Chroma
       root.add_attribute('profile', @profile)
       scene = root.add_element('Scene')
 
+      model.materials.each do |material|
+        write_material(material, scene)
+      end
+
       model.definitions.each do |definition|
         write_definition(definition, scene)
       end
@@ -47,6 +51,24 @@ module Chroma
 
       File.open(path, 'w') do |file|
         doc.write(output: file, indent: @debug ? 2 : -1)
+      end
+    end
+
+    def write_material(material, root)
+      # TODO: are material instances shared or copied?
+      declare = root.add_element('ProtoDeclare')
+      declare.add_attribute('name', "mat:#{material.name}")
+      body = declare.add_element('ProtoBody')
+      appearance = body.add_element('Appearance')
+      mat_node = appearance.add_element('Material')
+      texture = material.texture
+      if texture
+        # TODO version 4.0 supports textures assigned to Material
+        imagetex = appearance.add_element('ImageTexture')
+        imagetex.add_attribute('url', path_to_uri(texture.filename))
+      else
+        # TODO colorized textures
+        mat_node.add_attribute('diffuseColor', write_sfcolor(material.color))
       end
     end
 
@@ -67,7 +89,6 @@ module Chroma
       end
 
       # TODO: share mesh between instances, with default material separate.
-      # use a StaticGroup?
       write_mesh(entities, root)
     end
 
@@ -151,18 +172,8 @@ module Chroma
         tri_set.add_attribute('index', join_mf(builder.indices))
 
         if face_mat
-          # TODO: some way to share materials between prototypes?
-          appearance = shape.add_element('Appearance')
-          material = appearance.add_element('Material')
-          face_tex = face_mat.texture
-          if face_tex
-            # TODO version 4.0 supports textures assigned to Material
-            imagetex = appearance.add_element('ImageTexture')
-            imagetex.add_attribute('url', path_to_uri(face_tex.filename))
-          else
-            # TODO colorized textures
-            material.add_attribute('diffuseColor', write_sfcolor(face_mat.color))
-          end
+          proto = shape.add_element('ProtoInstance')
+          proto.add_attribute('name', "mat:#{face_mat.name}")
         end
       end
     end
