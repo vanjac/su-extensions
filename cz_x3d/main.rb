@@ -68,7 +68,8 @@ module Chroma
         write_instance(group, root)
       end
 
-      # TODO: share mesh between instances. use a StaticGroup?
+      # TODO: share mesh between instances, with default material separate.
+      # use a StaticGroup?
       write_mesh(entities, root)
     end
 
@@ -140,7 +141,8 @@ module Chroma
     end
 
     def path_to_uri(path)
-      # TODO handle relative paths
+      # TODO handle relative paths and special characters
+      # https://doc.instantreality.org/documentation/nodetype/ImageTexture2D/
       "file:///#{path.gsub('\\', '/')}"
     end
 
