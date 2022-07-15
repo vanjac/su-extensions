@@ -6,7 +6,7 @@ module Chroma
     ex = SketchupExtension.new('X3D Creator', 'cz_x3d/main')
     ex.description = ''
     ex.version = '-1'
-    ex.creator = 'Jacob van\'t Hoog'
+    ex.creator = 'chroma zone'
     Sketchup.register_extension(ex, true)
     file_loaded(__FILE__)
   end
