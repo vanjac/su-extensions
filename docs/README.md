@@ -2,12 +2,12 @@
 
 A handful of useful extensions for SketchUp 2017+.
 
-- Hide Back Faces (back-face culling)
+- [Hide Back Faces](https://extensions.sketchup.com/extension/8ad8e708-fb59-4369-90a8-c3e847764b12/Hide%20Back%20Faces) (back-face culling)
 - State Machines
 - Exact Measurement (Windows only, WIP)
 - Fly Tool (Windows only, no longer in development)
 
-`install.ps1` can be used to install all plugins for SketchUp 2017 (you will need to restart SketchUp). You can modify the script if you have a different version.
+[install.ps1](https://github.com/vanjac/su-extensions/blob/master/install.ps1) can be used to install all plugins for SketchUp 2017 (you will need to restart SketchUp). You can modify the script if you have a different version.
 
 ## Hide Back Faces
 
