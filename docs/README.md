@@ -11,7 +11,7 @@ A handful of useful extensions for SketchUp 2017+.
 
 ## Hide Back Faces
 
-<img src="https://user-images.githubusercontent.com/8228102/206855699-c90145ba-1c77-4d64-b53b-7d150d32f02a.png" width="495">
+<img src="screenshot.png" width="495">
 
 Adds a toggle under the Extensions menu which hides the back sides of faces -- this is also known as "back-face culling." As you orbit/pan around the scene, faces will be continuously updated. This is especially useful for working with interior spaces, or previewing how a model will appear in game engines that render single-sided polygons. You can reverse faces (by right clicking and choosing "Reverse Faces") to flip which side is considered "front."
 
